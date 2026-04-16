@@ -3,14 +3,17 @@
    ═══════════════════════════════════════════ */
 
 .msg-page-wrapper {
-  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
   height: 100vh;
   max-height: 100vh;
+  z-index: 999999;
+  background-color: var(--surface);
   overflow: hidden;
   display: flex;
   justify-content: center;
-  margin-top: -32px;
-  margin-bottom: -32px;
 }
 
 .msg-container {
@@ -51,14 +54,24 @@
   margin-bottom: 16px;
 }
 
+.msg-list-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  min-height: 48px;
+}
+
 .msg-list-title {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.5px;
+  margin: 0;
+  text-align: center;
 }
 
-.msg-compose-btn {
+.msg-app-back-btn {
   width: 40px;
   height: 40px;
   border-radius: var(--radius-full);
@@ -70,18 +83,35 @@
   align-items: center;
   justify-content: center;
   transition: all var(--transition-fast);
+  flex-shrink: 0;
 }
 
-.msg-compose-btn:hover {
+.msg-list-footer {
+  position: relative;
+  z-index: 1000;
+  flex-shrink: 0;
+}
+
+.msg-list-footer .mobile-bottom-nav {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1001;
+  display: block !important;
+}
+
+.msg-app-back-btn:hover {
   background-color: var(--surface-2);
   transform: scale(1.05);
 }
 
-.msg-compose-btn:active {
+.msg-app-back-btn:active {
   transform: scale(0.95);
 }
 
 /* ─── SEARCH ─── */
+
 .msg-search-wrapper {
   position: relative;
   margin-bottom: 16px;
@@ -158,6 +188,48 @@
   background: linear-gradient(135deg, #2563EB, #8B5CF6, #EC4899);
   padding: 2.5px;
   transition: all var(--transition-base);
+  position: relative;
+}
+
+/* Add Story Button Special Styles */
+.add-story-btn .msg-online-avatar-ring.add-story {
+  background: var(--border);
+  padding: 2px;
+}
+
+.msg-add-story-icon-wrapper {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  border: 3px solid var(--surface);
+  position: relative;
+}
+
+.msg-add-story-plus {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, var(--primary), #7C3AED);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  border: 2px solid var(--surface);
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.add-story-btn:hover .msg-add-story-plus {
+  transform: scale(1.1);
 }
 
 .msg-online-avatar-btn:hover .msg-online-avatar-ring {
@@ -178,14 +250,10 @@
   border: 3px solid var(--surface);
 }
 
-.msg-online-avatar-btn {
-  position: relative;
-}
-
 .msg-online-dot {
   position: absolute;
-  bottom: 18px;
-  right: 4px;
+  bottom: 0px;
+  right: 0px;
   width: 14px;
   height: 14px;
   background-color: #22C55E;
@@ -207,7 +275,7 @@
 .msg-conversation-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 0;
+  padding: 8px 0 80px; /* Space for mobile nav */
   scrollbar-width: thin;
 }
 
@@ -465,10 +533,11 @@
 .msg-chat-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 14px;
+  padding: 16px;
   background-color: var(--surface);
   border-bottom: 1px solid var(--border);
+  min-height: 72px;
   flex-shrink: 0;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -536,10 +605,13 @@
 }
 
 .msg-chat-header-name {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .msg-chat-header-status {
@@ -1310,14 +1382,15 @@
    ═══════════════════════════════════════════ */
 @media (max-width: 768px) {
   .msg-page-wrapper {
-    margin-top: -76px;
-    padding-top: 60px;
+    top: 0;
+    margin-top: 0;
+    padding-top: 0;
   }
 
   .msg-container {
     border: none;
     max-width: 100%;
-    height: calc(100vh - 60px);
+    height: 100vh;
   }
 
   .msg-list-panel {

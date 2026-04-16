@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import MobileBottomNav from '@/app/components/Sidebar/MobileBottomNav';
 import './messages.css';
 
 /* ─────────── TYPES ─────────── */
@@ -150,6 +152,7 @@ const EMOJI_LIST = ['😀', '😂', '❤️', '🔥', '👍', '😍', '🎉', '�
 
 /* ─────────── COMPONENT ─────────── */
 export default function MessagesPage() {
+  const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>(MOCK_CONVERSATIONS);
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
@@ -360,11 +363,6 @@ export default function MessagesPage() {
       <div className="msg-list-header">
         <div className="msg-list-header-top">
           <h1 className="msg-list-title">Messages</h1>
-          <button className="msg-compose-btn" aria-label="New message">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
-            </svg>
-          </button>
         </div>
         {/* Search */}
         <div className="msg-search-wrapper">
@@ -381,6 +379,18 @@ export default function MessagesPage() {
         </div>
         {/* Online now row */}
         <div className="msg-online-row">
+          <button className="msg-online-avatar-btn add-story-btn">
+            <div className="msg-online-avatar-ring add-story">
+              <div className="msg-add-story-icon-wrapper">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <div className="msg-add-story-plus">+</div>
+              </div>
+            </div>
+            <span className="msg-online-name">Your story</span>
+          </button>
           {conversations.filter(c => c.user.online).map(c => (
             <button
               key={c.id}
@@ -438,6 +448,9 @@ export default function MessagesPage() {
             </div>
           </button>
         ))}
+      </div>
+      <div className="msg-list-footer">
+        <MobileBottomNav />
       </div>
     </div>
   );

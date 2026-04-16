@@ -748,7 +748,7 @@ body {
 
 @keyframes dropdown-appear {
   from { opacity: 0; transform: translateY(-6px); }
-  cursor: pointer;
+  to { opacity: 1; transform: translateY(0); }
 }
 .notif-item:hover {
   background-color: var(--surface-2);
@@ -1115,8 +1115,35 @@ body {
   }
   
   .main-content {
+    display: block; /* Fixes padding collapse on scroll for flex parents */
     padding: 16px 12px;
     padding-top: calc(60px + env(safe-area-inset-top) + 16px);
-    padding-bottom: calc(64px + env(safe-area-inset-bottom) + 16px); /* account for mobile nav */
+    padding-bottom: calc(64px + env(safe-area-inset-bottom)); /* Tightened to match nav height exactly */
   }
+
+  .feed-container {
+    margin: 0 auto;
+  }
+}
+
+/* Page Utilites */
+.no-header-page {
+  padding-top: 16px !important;
+}
+
+.profile-no-header {
+  padding-top: 40px !important;
+}
+
+@media (max-width: 768px) {
+  .no-header-page {
+    padding-top: calc(env(safe-area-inset-top) + 16px) !important;
+  }
+  .profile-no-header {
+    padding-top: calc(env(safe-area-inset-top) + 40px) !important;
+  }
+}
+
+.extra-bottom-space {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
 }

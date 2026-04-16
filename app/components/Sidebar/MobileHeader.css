@@ -61,7 +61,8 @@
   opacity: 0.7;
 }
 
-.premium-message-btn {
+.premium-message-btn,
+.premium-notif-btn {
   background: none;
   border: none;
   color: var(--text-primary);
@@ -75,18 +76,22 @@
   transition: all var(--transition-base);
 }
 
-.premium-message-btn:hover {
+.premium-message-btn:hover,
+.premium-notif-btn:hover {
   transform: scale(1.15);
   filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.4));
 }
 
-.premium-message-btn:active {
+.premium-message-btn:active,
+.premium-notif-btn:active {
   transform: translateY(0);
 }
 
-.premium-message-btn svg {
+.premium-message-btn svg,
+.premium-notif-btn svg {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.05));
 }
+
 
 .mobile-header-badge.glass {
   position: absolute;

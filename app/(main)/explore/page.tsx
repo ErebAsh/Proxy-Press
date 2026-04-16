@@ -1,114 +1,143 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { posts, categories } from '@/lib/data';
 import type { Category } from '@/lib/data';
+import './explore.css';
 
 const categoryColors: Record<string, string> = {
   Events: '#8B5CF6', Notices: '#F59E0B', Sports: '#10B981',
   Academic: '#2563EB', Clubs: '#EC4899', Exams: '#EF4444',
+  News: '#6366F1', "College Daily Update": '#14B8A6', Others: '#94A3B8',
 };
-const categoryEmojis: Record<string, string> = {
-  Events: '🎉', Notices: '📢', Sports: '⚽',
-  Academic: '📚', Clubs: '🎭', Exams: '📝',
-};
-
-// Vary aspect ratios for masonry feel
-const aspectRatios = ['4/3', '3/4', '1/1', '4/3', '3/4', '16/9', '3/4', '4/3'];
 
 export default function ExplorePage() {
   const [active, setActive] = useState<Category | 'All'>('All');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const filtered = useMemo(() =>
-    active === 'All' ? posts : posts.filter(p => p.category === active),
-    [active]
-  );
+  const filtered = useMemo(() => {
+    let result = active === 'All' ? posts : posts.filter(p => p.category === active);
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(p => p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q));
+    }
+    return result;
+  }, [active, searchQuery]);
+
+  useEffect(() => {
+    const main = document.getElementById('main-content');
+    if (main) {
+      main.classList.add('no-header-page', 'extra-bottom-space');
+      return () => main.classList.remove('no-header-page', 'extra-bottom-space');
+    }
+  }, []);
 
   return (
-    <div className="feed-container" style={{ maxWidth: '900px' }} id="explore-page">
+    <div className="explore-container feed-container" id="explore-page">
       {/* Header */}
-      <div className="desktop-only" style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>
+      <div className="explore-header-premium" style={{ textAlign: 'center', padding: '0 0 20px' }}>
+        <h1 className="explore-title" style={{ 
+          fontSize: '32px', 
+          background: 'linear-gradient(to right, var(--text-primary), var(--primary))',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          marginBottom: '2px',
+          fontWeight: 800
+        }}>
           Explore
         </h1>
-        <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '2px' }}>
+        <p className="explore-subtitle" style={{ fontSize: '14px', opacity: 0.7, fontWeight: 500, marginBottom: '24px' }}>
           Discover stories from every corner of campus
         </p>
+
+        {/* Beautiful Search Bar */}
+        <div style={{ position: 'relative', maxWidth: '440px', margin: '0 auto 24px' }}>
+          <div style={{ 
+            position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)',
+            color: 'var(--text-muted)', display: 'flex'
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </div>
+          <input 
+            type="text" 
+            placeholder="Search stories, events..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%', height: '52px', background: 'var(--surface-2)',
+              border: '2px solid var(--border)', borderRadius: '16px',
+              padding: '0 20px 0 52px', fontSize: '15px', color: 'var(--text-primary)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.05)', transition: 'all 0.2s',
+              outline: 'none'
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = 'var(--primary)';
+              e.currentTarget.style.backgroundColor = 'var(--surface)';
+              e.currentTarget.style.boxShadow = '0 8px 24px rgba(37, 99, 235, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border)';
+              e.currentTarget.style.backgroundColor = 'var(--surface-2)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.05)';
+            }}
+          />
+        </div>
+
+        <div style={{ 
+          height: '1px', width: '100%', 
+          background: 'linear-gradient(to right, transparent, var(--border), transparent)',
+          marginBottom: '4px'
+        }} />
       </div>
 
       {/* Category filter */}
-      <div className="h-scroll" style={{ marginBottom: '24px', gap: '8px' }} id="explore-filters">
+      <div className="explore-filter-scroll" id="explore-filters">
         <button
-          className={`category-pill ${active === 'All' ? 'active' : ''}`}
+          className={`explore-pill ${active === 'All' ? 'active' : ''}`}
           onClick={() => setActive('All')}
           id="filter-all"
         >
-          🌐 All
+          <span>🌐</span> All
         </button>
         {categories.map(cat => (
           <button
             key={cat.name}
             id={`filter-${cat.name.toLowerCase()}`}
-            className={`category-pill ${active === cat.name ? 'active' : ''}`}
+            className={`explore-pill ${active === cat.name ? 'active' : ''}`}
             onClick={() => setActive(cat.name)}
           >
-            {cat.emoji} {cat.name}
+            <span>{cat.emoji}</span> {cat.name}
           </button>
         ))}
       </div>
 
-      {/* Masonry grid */}
-      <div className="masonry-grid" id="masonry-grid">
-        {filtered.map((post, idx) => {
-          const cat = post.category;
-          const color = categoryColors[cat];
-          const ratio = aspectRatios[idx % aspectRatios.length];
+      {/* Modern Grid */}
+      <div className="explore-grid" id="explore-grid">
+        {filtered.map((post) => {
+          const color = categoryColors[post.category];
           return (
             <Link
               key={post.id}
               href={`/article/${post.slug}`}
-              className="masonry-item"
-              id={`masonry-${post.id}`}
-              style={{ textDecoration: 'none' }}
+              className="explore-item"
+              id={`explore-item-${post.id}`}
             >
-              <div style={{ position: 'relative', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                <img
-                  src={post.imageUrl}
-                  alt={post.title}
-                  style={{ width: '100%', aspectRatio: ratio, objectFit: 'cover', display: 'block' }}
-                  loading="lazy"
-                  onError={e => {
-                    const t = e.currentTarget as HTMLImageElement;
-                    t.style.display = 'none';
-                    const fb = t.nextElementSibling as HTMLElement | null;
-                    if (fb) fb.style.display = 'flex';
-                  }}
-                />
-                {/* Gradient fallback */}
-                <div style={{
-                  display: 'none', width: '100%', aspectRatio: ratio,
-                  background: post.imageColor, alignItems: 'center',
-                  justifyContent: 'center', fontSize: '48px',
-                }}>
-                  {categoryEmojis[cat]}
-                </div>
-                <div className="masonry-overlay">
-                  <div>
-                    <span style={{
-                      fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em',
-                      color: `${color}`, background: `${color}30`,
-                      padding: '2px 8px', borderRadius: '99px',
-                    }}>
-                      {categoryEmojis[cat]} {cat}
-                    </span>
-                    <p style={{ fontSize: '13px', fontWeight: 600, color: '#fff', marginTop: '6px', lineHeight: 1.4 }}>
-                      {post.title}
-                    </p>
-                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginTop: '4px' }}>
-                      ❤️ {post.likes} · 💬 {post.comments}
-                    </p>
-                  </div>
+              <img 
+                src={post.imageUrl} 
+                alt={post.title} 
+                loading="lazy" 
+              />
+              <div className="explore-content-overlay">
+                <span className="explore-item-category" style={{ background: `${color}40` }}>
+                  {post.category}
+                </span>
+                <h3 className="explore-item-title">{post.title}</h3>
+                <div className="explore-item-stats">
+                  <span>❤️ {post.likes}</span>
+                  <span>💬 {post.comments}</span>
                 </div>
               </div>
             </Link>
@@ -126,3 +155,4 @@ export default function ExplorePage() {
     </div>
   );
 }
+

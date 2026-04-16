@@ -1,156 +1,252 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { currentUser, posts } from '@/lib/data';
+import './profile.css';
 
 const userPosts = posts.slice(0, 7);
 const savedPosts = posts.filter(p => p.isSaved);
 
+const categoryColors: Record<string, string> = {
+  Events: '#8B5CF6', Notices: '#F59E0B', Sports: '#10B981',
+  Academic: '#2563EB', Clubs: '#EC4899', Exams: '#EF4444',
+  News: '#6366F1', "College Daily Update": '#14B8A6', Others: '#94A3B8',
+};
+
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
   const displayPosts = activeTab === 'posts' ? userPosts : savedPosts;
 
-  const stats = [
-    { label: 'Posts', value: currentUser.posts },
-    { label: 'Followers', value: currentUser.followers.toLocaleString() },
-    { label: 'Following', value: currentUser.following.toLocaleString() },
-  ];
+  // Close settings dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setSettingsOpen(false);
+      }
+    }
+    if (settingsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [settingsOpen]);
+  
+  useEffect(() => {
+    const main = document.getElementById('main-content');
+    if (main) {
+      main.classList.add('profile-no-header', 'extra-bottom-space');
+      return () => main.classList.remove('profile-no-header', 'extra-bottom-space');
+    }
+  }, []);
 
   return (
-    <div className="feed-container animate-fade-in" style={{ maxWidth: '720px' }} id="profile-page">
-
-      {/* Profile Header Card */}
-      <div className="card" style={{ padding: '32px', marginBottom: '24px' }}>
-        {/* Cover gradient bar */}
-        <div style={{
-          height: '80px', borderRadius: 'var(--radius-md)',
-          background: 'linear-gradient(135deg, #2563EB 0%, #8B5CF6 50%, #EC4899 100%)',
-          marginBottom: '-40px',
-        }} />
-
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', marginBottom: '20px' }}>
-          {/* Avatar */}
-          <div style={{
-            width: '80px', height: '80px', borderRadius: '50%',
-            background: 'linear-gradient(135deg, #2563EB, #8B5CF6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '32px', border: '4px solid var(--surface)',
-            flexShrink: 0, boxShadow: 'var(--shadow-md)',
-          }}>
-            {currentUser.avatar}
-          </div>
-          <div style={{ flex: 1, paddingBottom: '8px' }}>
-            <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>
-              {currentUser.name}
-            </h1>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>@alexj · {currentUser.college}</p>
-          </div>
-          {/* Edit button */}
-          <button
-            id="edit-profile-btn"
-            className="btn btn-ghost"
-            style={{ fontSize: '13px', padding: '8px 16px', alignSelf: 'flex-end', marginBottom: '8px' }}
-          >
-            ✏️ Edit Profile
-          </button>
-        </div>
-
-        {/* Bio */}
-        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '20px' }}>
-          {currentUser.bio}
-        </p>
-
-        {/* Stats */}
-        <div style={{ display: 'flex', gap: '4px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-          {stats.map(stat => (
-            <div key={stat.label} className="profile-stat" style={{ flex: 1 }}>
-              <span className="profile-stat-value">{stat.value}</span>
-              <span className="profile-stat-label">{stat.label}</span>
+    <div className="ig-profile animate-fade-in" id="profile-page" style={{ position: 'relative' }}>
+      
+      {/* ─── Profile Header: Avatar ─── */}
+      <div className="ig-profile-header-centered">
+        <div className="ig-avatar-wrapper">
+          <div className="ig-avatar-ring">
+            <div className="ig-avatar-inner">
+              {currentUser.avatar}
             </div>
-          ))}
+          </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{
-        display: 'flex', borderBottom: '2px solid var(--border)',
-        marginBottom: '20px', background: 'var(--surface)',
-        borderRadius: 'var(--radius-md) var(--radius-md) 0 0',
-        overflow: 'hidden',
-      }}>
-        {(['posts', 'saved'] as const).map(tab => (
-          <button
-            key={tab}
-            id={`profile-tab-${tab}`}
-            className={`profile-tab ${activeTab === tab ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab)}
-            style={{ flex: 1, textAlign: 'center', background: 'transparent', border: 'none' }}
-          >
-            {tab === 'posts' ? '📰 Posts' : '🔖 Saved'}
-            {tab === 'posts' && (
-              <span style={{ marginLeft: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--text-subtle)' }}>
-                ({userPosts.length})
-              </span>
-            )}
-            {tab === 'saved' && (
-              <span style={{ marginLeft: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--text-subtle)' }}>
-                ({savedPosts.length})
-              </span>
-            )}
-          </button>
-        ))}
+      {/* ─── Profile Info ─── */}
+      <div className="ig-profile-info-centered">
+        <h1 className="ig-display-name">{currentUser.name}</h1>
+        <p className="ig-username">@alexj · {currentUser.college}</p>
+        <p className="ig-bio">{currentUser.bio}</p>
       </div>
 
-      {/* Post Grid */}
+      {/* ─── Stats Bar (Moved Down) ─── */}
+      <div className="ig-stats-bar">
+        <div className="ig-stat">
+          <span className="ig-stat-value">{currentUser.posts}</span>
+          <span className="ig-stat-label">Posts</span>
+        </div>
+        <div className="ig-stat">
+          <span className="ig-stat-value">{currentUser.followers.toLocaleString()}</span>
+          <span className="ig-stat-label">Followers</span>
+        </div>
+        <div className="ig-stat">
+          <span className="ig-stat-value">{currentUser.following.toLocaleString()}</span>
+          <span className="ig-stat-label">Following</span>
+        </div>
+      </div>
+
+      {/* ─── Action Buttons ─── */}
+      <div className="ig-profile-actions">
+        <button
+          className={`ig-action-btn ${isFollowing ? 'ig-action-btn-following' : 'ig-action-btn-follow'}`}
+          id="follow-btn"
+          onClick={() => setIsFollowing(prev => !prev)}
+        >
+          {isFollowing ? 'Following' : 'Follow'}
+        </button>
+        
+        <div className="ig-settings-container" ref={settingsRef}>
+          <button 
+            className="ig-action-btn ig-action-btn-settings"
+            onClick={() => setSettingsOpen(prev => !prev)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            Settings
+          </button>
+
+          {settingsOpen && (
+            <div className="ig-settings-dropdown" id="settings-dropdown">
+              <button className="ig-settings-item" id="edit-profile-btn" onClick={() => setSettingsOpen(false)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                Edit Profile
+              </button>
+              <button className="ig-settings-item" onClick={() => setSettingsOpen(false)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                Privacy
+              </button>
+              <button className="ig-settings-item" onClick={() => setSettingsOpen(false)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                Notifications
+              </button>
+              <button className="ig-settings-item" onClick={() => setSettingsOpen(false)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                About
+              </button>
+              <div className="ig-settings-divider"></div>
+              <button className="ig-settings-item ig-settings-item-danger" onClick={() => setSettingsOpen(false)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                Log Out
+              </button>
+            </div>
+          )}
+        </div>
+
+        <button className="ig-action-btn-icon" aria-label="Discover people">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <line x1="19" y1="8" x2="19" y2="14" />
+            <line x1="22" y1="11" x2="16" y2="11" />
+          </svg>
+        </button>
+      </div>
+
+      {/* ─── Tabs (Icons) ─── */}
+      <div className="ig-tabs">
+        <button
+          className={`ig-tab ${activeTab === 'posts' ? 'active' : ''}`}
+          onClick={() => setActiveTab('posts')}
+          aria-label="Posts"
+          id="profile-tab-posts"
+        >
+          {/* Grid icon */}
+          <svg width="22" height="22" viewBox="0 0 24 24" fill={activeTab === 'posts' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5">
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+          </svg>
+        </button>
+        <button
+          className={`ig-tab ${activeTab === 'saved' ? 'active' : ''}`}
+          onClick={() => setActiveTab('saved')}
+          aria-label="Saved"
+          id="profile-tab-saved"
+        >
+          {/* Bookmark icon */}
+          <svg width="22" height="22" viewBox="0 0 24 24" fill={activeTab === 'saved' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+          </svg>
+        </button>
+      </div>
+
+      {/* ─── Post Grid ─── */}
       {displayPosts.length > 0 ? (
-        <div className="profile-grid" id="profile-grid">
+        <div className="ig-grid" id="profile-grid">
           {displayPosts.map(post => (
             <Link
               key={post.id}
               href={`/article/${post.slug}`}
-              className="profile-grid-item"
+              className="ig-grid-item"
               id={`grid-post-${post.id}`}
-              style={{ textDecoration: 'none' }}
             >
-              <img
-                src={post.imageUrl}
-                alt={post.title}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                loading="lazy"
-                onError={e => {
-                  const t = e.currentTarget as HTMLImageElement;
-                  t.style.display = 'none';
-                  const fb = t.nextElementSibling as HTMLElement | null;
-                  if (fb) fb.style.display = 'flex';
-                }}
+              <img 
+                src={post.imageUrl} 
+                alt={post.title} 
+                loading="lazy" 
               />
-              <div style={{
-                display: 'none', width: '100%', height: '100%',
-                background: post.imageColor || 'var(--surface-2)',
-                alignItems: 'center', justifyContent: 'center', fontSize: '32px',
-              }}
-                className="profile-grid-fallback"
-              >
-                📰
-              </div>
-              <div className="profile-grid-overlay">
-                <span>❤️ {post.likes >= 1000 ? `${(post.likes / 1000).toFixed(1)}k` : post.likes}</span>
-                <span>💬 {post.comments}</span>
+              <div className="ig-grid-overlay-premium">
+                <span 
+                  className="ig-grid-category" 
+                  style={{ background: `${categoryColors[post.category] || '#6366f1'}40` }}
+                >
+                  {post.category}
+                </span>
+                <h3 className="ig-grid-title">{post.title}</h3>
+                <div className="ig-grid-stats-row">
+                  <span className="ig-grid-stat">
+                    ❤️ {post.likes >= 1000 ? `${(post.likes / 1000).toFixed(1)}k` : post.likes}
+                  </span>
+                  <span className="ig-grid-stat">
+                    💬 {post.comments}
+                  </span>
+                </div>
               </div>
             </Link>
           ))}
         </div>
       ) : (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>
-            {activeTab === 'saved' ? '🔖' : '📰'}
+        <div className="ig-empty">
+          <div className="ig-empty-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              {activeTab === 'saved' ? (
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+              ) : (
+                <>
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </>
+              )}
+            </svg>
           </div>
-          <p style={{ fontWeight: 600 }}>
-            {activeTab === 'saved' ? 'No saved posts yet' : 'No posts yet'}
+          <h2 className="ig-empty-title">
+            {activeTab === 'saved' ? 'Save' : 'Share Photos'}
+          </h2>
+          <p className="ig-empty-subtitle">
+            {activeTab === 'saved'
+              ? "Save photos and videos that you want to see again."
+              : "When you share photos, they will appear on your profile."}
           </p>
-          <Link href={activeTab === 'saved' ? '/' : '/create'} style={{ color: 'var(--primary)', fontWeight: 600, fontSize: '14px', marginTop: '8px', display: 'inline-block' }}>
-            {activeTab === 'saved' ? 'Browse the feed →' : 'Create your first post →'}
+          <Link
+            href={activeTab === 'saved' ? '/' : '/create'}
+            className="ig-empty-link"
+          >
+            {activeTab === 'saved' ? 'Browse the feed' : 'Share your first post'}
           </Link>
         </div>
       )}

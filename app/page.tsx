@@ -9,7 +9,7 @@ export default function HomePage() {
     <div className="app-shell">
       <MobileHeader />
       <LeftSidebar />
-      <main className="main-content" id="main-content">
+      <main className="main-content" id="main-content" style={{ paddingBottom: 'calc(32px + env(safe-area-inset-bottom))' }}>
         <HomeFeed />
       </main>
       <RightSidebar />

@@ -6,7 +6,10 @@ export type Category =
   | "Sports"
   | "Academic"
   | "Clubs"
-  | "Exams";
+  | "Exams"
+  | "News"
+  | "College Daily Update"
+  | "Others";
 
 export interface Author {
   id: string;
@@ -517,6 +520,9 @@ export const categories: { name: Category; emoji: string; color: string }[] = [
   { name: "Academic", emoji: "📚", color: "#2563EB" },
   { name: "Clubs", emoji: "🎭", color: "#EC4899" },
   { name: "Exams", emoji: "📝", color: "#EF4444" },
+  { name: "News", emoji: "📰", color: "#6366F1" },
+  { name: "College Daily Update", emoji: "🗓️", color: "#14B8A6" },
+  { name: "Others", emoji: "✨", color: "#94A3B8" },
 ];
 
 export const trendingTopics = [

@@ -1,0 +1,74 @@
+.feed-filters-wrapper {
+  margin-bottom: 24px;
+  background: var(--bg);
+  padding: 12px 0;
+  transition: all var(--transition-base);
+}
+
+.feed-filters-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 4px 2px;
+}
+
+.feed-filters-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.feed-filter-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 100px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
+  outline: none;
+}
+
+.feed-filter-pill:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.feed-filter-pill:active {
+  transform: translateY(0);
+}
+
+.feed-filter-pill.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.filter-emoji {
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.filter-text {
+  letter-spacing: -0.2px;
+}
+
+/* Dark mode adjustments if needed beyond variables */
+[class*="dark"] .feed-filter-pill {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[class*="dark"] .feed-filter-pill.active {
+  background: var(--primary);
+}

@@ -10,23 +10,31 @@ export default function MobileHeader() {
   const { unreadCount, markAllRead } = useNotifications();
 
   const isNotifications = pathname === '/notifications';
+  const isMessages = pathname === '/messages';
   const isExplore = pathname === '/explore';
+  const isProfile = pathname === '/profile';
+  const isCreate = pathname === '/create';
+
+  if (isProfile || isCreate || isExplore) return null;
 
   return (
     <header className="mobile-header">
       <div className="mobile-header-container">
-        {isNotifications ? (
+        {isNotifications || isMessages ? (
           <>
             <div className="mobile-header-left">
               <h1 className="mobile-header-title">
-                Notifications
-                {unreadCount > 0 && (
+                {isNotifications ? 'Notifications' : 'Messages'}
+                {isNotifications && unreadCount > 0 && (
                   <span className="mobile-header-count">{unreadCount}</span>
+                )}
+                {isMessages && (
+                  <span className="mobile-header-count">2</span>
                 )}
               </h1>
             </div>
             <div className="mobile-header-right">
-              {unreadCount > 0 && (
+              {isNotifications && unreadCount > 0 && (
                 <button
                   className="mobile-header-action-btn"
                   onClick={markAllRead}
@@ -37,6 +45,42 @@ export default function MobileHeader() {
                   <span>Mark Read</span>
                 </button>
               )}
+              {isMessages && (
+                <button className="mobile-header-action-btn">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  <span>New</span>
+                </button>
+              )}
+            </div>
+          </>
+        ) : isProfile ? (
+          <>
+            <div className="mobile-header-left">
+              <h1 className="mobile-header-title" style={{ fontSize: '18px', letterSpacing: '-0.3px' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '2px' }}>
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                alexj
+              </h1>
+            </div>
+            <div className="mobile-header-right" style={{ gap: '4px' }}>
+              <button className="mobile-header-action-btn" aria-label="Create" style={{ padding: '6px' }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <line x1="12" y1="8" x2="12" y2="16"/>
+                  <line x1="8" y1="12" x2="16" y2="12"/>
+                </svg>
+              </button>
+              <button className="mobile-header-action-btn" aria-label="Menu" style={{ padding: '6px' }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="3" y1="6" x2="21" y2="6"/>
+                  <line x1="3" y1="12" x2="21" y2="12"/>
+                  <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+              </button>
             </div>
           </>
         ) : isExplore ? (
@@ -74,36 +118,37 @@ export default function MobileHeader() {
               </Link>
             </div>
             <div className="mobile-header-right">
-              <Link href="/messages" className="premium-message-btn" aria-label="Messages">
+              <Link href="/notifications" className="premium-notif-btn" aria-label="Notifications">
                 <svg 
                   width="28" 
                   height="28" 
                   viewBox="0 0 24 24" 
                   fill="none" 
-                  strokeWidth="2.8" 
+                  strokeWidth="2.5" 
                   strokeLinecap="round" 
                   strokeLinejoin="round"
                 >
                   <defs>
-                    <linearGradient id="msg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <linearGradient id="notif-grad" x1="0%" y1="0%" x2="100%" y2="100%">
                       <stop offset="0%" stopColor="var(--primary)" />
                       <stop offset="100%" stopColor="#8B5CF6" />
                     </linearGradient>
                   </defs>
                   <path 
-                    d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" 
-                    stroke="url(#msg-grad)"
+                    d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" 
+                    stroke="url(#notif-grad)"
                   />
-                  <path d="M8 12h.01" stroke="url(#msg-grad)" />
-                  <path d="M12 12h.01" stroke="url(#msg-grad)" />
-                  <path d="M16 12h.01" stroke="url(#msg-grad)" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="url(#notif-grad)" />
                 </svg>
-                <span className="mobile-header-badge glass">2</span>
+                {unreadCount > 0 && (
+                  <span className="mobile-header-badge glass">{unreadCount}</span>
+                )}
               </Link>
             </div>
           </>
         )}
       </div>
     </header>
+
   );
 }
