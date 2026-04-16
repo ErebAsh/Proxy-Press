@@ -27,10 +27,10 @@
 }
 
 .mobile-logo-text {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
   color: var(--text-primary);
-  letter-spacing: -0.5px;
+  letter-spacing: -0.6px;
   font-family: 'Inter', sans-serif;
 }
 
@@ -61,6 +61,60 @@
   opacity: 0.7;
 }
 
+.premium-message-btn {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  padding: 8px;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  transition: all var(--transition-base);
+}
+
+.premium-message-btn:hover {
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.4));
+}
+
+.premium-message-btn:active {
+  transform: translateY(0);
+}
+
+.premium-message-btn svg {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.05));
+}
+
+.mobile-header-badge.glass {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: rgba(239, 68, 68, 0.95);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--surface);
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
+  animation: badge-bounce 2s infinite;
+}
+
+@keyframes badge-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
 .mobile-header-badge {
   position: absolute;
   top: 4px;
@@ -74,6 +128,62 @@
   min-width: 16px;
   text-align: center;
   border: 2px solid var(--surface);
+}
+
+.mobile-header-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-header-count {
+  background-color: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+}
+
+.mobile-header-action-btn {
+  background-color: var(--surface-2);
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.mobile-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.mobile-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.mobile-search-input {
+  transition: background-color var(--transition-fast);
+}
+
+.mobile-search-input:focus {
+  background-color: var(--border-light);
 }
 
 @media (max-width: 768px) {
