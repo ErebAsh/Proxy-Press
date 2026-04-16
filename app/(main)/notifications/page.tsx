@@ -1,11 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { notifications } from '@/lib/data';
-import type { Notification } from '@/lib/data';
-import NotificationsHeader from '@/app/components/Sidebar/NotificationsHeader';
+import { Notification } from '@/lib/data';
+import { useNotifications } from '@/lib/NotificationsContext';
 
-const notifConfig: Record<Notification['type'], { emoji: string; color: string; bg: string }> = {
+const notifConfig: Record<string, { emoji: string; color: string; bg: string }> = {
   like:    { emoji: '❤️', color: '#EF4444', bg: '#FEE2E2' },
   comment: { emoji: '💬', color: '#2563EB', bg: '#DBEAFE' },
   mention: { emoji: '@',  color: '#8B5CF6', bg: '#EDE9FE' },
@@ -14,12 +12,7 @@ const notifConfig: Record<Notification['type'], { emoji: string; color: string; 
 };
 
 export default function NotificationsPage() {
-  const [notifs, setNotifs] = useState(notifications);
-  const unreadCount = notifs.filter(n => !n.isRead).length;
-
-  const markAllRead = () => setNotifs(ns => ns.map(n => ({ ...n, isRead: true })));
-  const markRead = (id: string) => setNotifs(ns => ns.map(n => n.id === id ? { ...n, isRead: true } : n));
-  const dismiss = (id: string) => setNotifs(ns => ns.filter(n => n.id !== id));
+  const { notifications: notifs, markRead, dismiss } = useNotifications();
 
   const today = notifs.filter((_, i) => i < 4);
   const earlier = notifs.filter((_, i) => i >= 4);
@@ -102,38 +95,6 @@ export default function NotificationsPage() {
 
   return (
     <div className="feed-container animate-fade-in" style={{ maxWidth: '640px' }} id="notifications-page">
-      <NotificationsHeader unreadCount={unreadCount} onMarkAllRead={markAllRead} />
-      {/* Header */}
-      <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            Notifications
-            {unreadCount > 0 && (
-              <span style={{
-                background: 'var(--accent)', color: '#fff',
-                fontSize: '13px', fontWeight: 700,
-                padding: '2px 10px', borderRadius: 'var(--radius-full)',
-              }}>
-                {unreadCount}
-              </span>
-            )}
-          </h1>
-          <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '2px' }}>
-            {unreadCount > 0 ? `You have ${unreadCount} unread notifications` : 'All caught up! 🎉'}
-          </p>
-        </div>
-        {unreadCount > 0 && (
-          <button
-            id="mark-all-read-btn"
-            className="btn btn-ghost"
-            style={{ fontSize: '13px', padding: '8px 14px' }}
-            onClick={markAllRead}
-          >
-            ✓ Mark all read
-          </button>
-        )}
-      </div>
-
       {notifs.length === 0 && (
         <div style={{ textAlign: 'center', padding: '80px 0' }}>
           <div style={{ fontSize: '56px', marginBottom: '16px' }}>🔔</div>

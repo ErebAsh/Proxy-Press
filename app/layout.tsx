@@ -22,6 +22,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { NotificationsProvider } from "@/lib/NotificationsContext";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -32,7 +34,11 @@ export default function RootLayout({
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body>{children}</body>
+      <body>
+        <NotificationsProvider>
+          {children}
+        </NotificationsProvider>
+      </body>
     </html>
   );
 }
