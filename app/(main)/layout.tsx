@@ -1,5 +1,6 @@
 import LeftSidebar from '@/app/components/Sidebar/LeftSidebar';
 import RightSidebar from '@/app/components/Sidebar/RightSidebar';
+import MobileBottomNav from '@/app/components/Sidebar/MobileBottomNav';
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,6 +10,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         {children}
       </main>
       <RightSidebar />
+      <MobileBottomNav />
     </div>
   );
 }

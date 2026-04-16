@@ -1,0 +1,100 @@
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--surface);
+  border-top: 1px solid var(--border);
+  z-index: 50;
+  padding-bottom: env(safe-area-inset-bottom); /* For iOS safe area */
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.mobile-nav-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 64px;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 0 16px;
+  position: relative;
+}
+
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  text-decoration: none;
+  color: var(--text-muted);
+  gap: 4px;
+  transition: color var(--transition-fast);
+}
+
+.mobile-nav-item.active {
+  color: var(--primary);
+}
+
+.mobile-nav-icon-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-nav-label {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mobile-nav-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  background-color: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: var(--radius-full);
+  min-width: 16px;
+  text-align: center;
+  border: 1.5px solid var(--surface);
+}
+
+.mobile-nav-create-wrapper {
+  position: relative;
+  transform: translateY(-16px);
+}
+
+.mobile-nav-create-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--primary), #8B5CF6);
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(99, 102, 241, 0.4);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.mobile-nav-create-btn:hover, .mobile-nav-create-btn:active {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(99, 102, 241, 0.5);
+}
+
+.mobile-nav-create-btn svg {
+  width: 28px;
+  height: 28px;
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: block;
+  }
+}

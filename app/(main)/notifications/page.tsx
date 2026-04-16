@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { notifications } from '@/lib/data';
 import type { Notification } from '@/lib/data';
+import NotificationsHeader from '@/app/components/Sidebar/NotificationsHeader';
 
 const notifConfig: Record<Notification['type'], { emoji: string; color: string; bg: string }> = {
   like:    { emoji: '❤️', color: '#EF4444', bg: '#FEE2E2' },
@@ -101,9 +102,9 @@ export default function NotificationsPage() {
 
   return (
     <div className="feed-container animate-fade-in" style={{ maxWidth: '640px' }} id="notifications-page">
-
+      <NotificationsHeader unreadCount={unreadCount} onMarkAllRead={markAllRead} />
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+      <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: '10px' }}>
             Notifications

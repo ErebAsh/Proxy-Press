@@ -5,16 +5,6 @@ import PostCard from './PostCard';
 export default function HomeFeed() {
   return (
     <div className="feed-container" id="home-feed">
-      {/* Page header */}
-      <div style={{ marginBottom: '20px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>
-          Your Feed
-        </h1>
-        <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '2px' }}>
-          Latest news &amp; updates from your college
-        </p>
-      </div>
-
       {/* Stories */}
       <StoriesRow />
 

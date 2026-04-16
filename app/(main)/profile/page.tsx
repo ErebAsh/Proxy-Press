@@ -13,7 +13,6 @@ export default function ProfilePage() {
 
   const stats = [
     { label: 'Posts', value: currentUser.posts },
-    { label: 'Saved', value: currentUser.saved },
     { label: 'Followers', value: currentUser.followers.toLocaleString() },
     { label: 'Following', value: currentUser.following.toLocaleString() },
   ];

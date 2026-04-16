@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { posts, categories } from '@/lib/data';
 import type { Category } from '@/lib/data';
+import ExploreHeader from '@/app/components/Sidebar/ExploreHeader';
 
 const categoryColors: Record<string, string> = {
   Events: '#8B5CF6', Notices: '#F59E0B', Sports: '#10B981',
@@ -27,8 +28,9 @@ export default function ExplorePage() {
 
   return (
     <div className="feed-container" style={{ maxWidth: '900px' }} id="explore-page">
+      <ExploreHeader />
       {/* Header */}
-      <div style={{ marginBottom: '24px' }}>
+      <div className="desktop-only" style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>
           Explore
         </h1>

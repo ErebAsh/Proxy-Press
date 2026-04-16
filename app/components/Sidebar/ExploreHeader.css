@@ -1,0 +1,66 @@
+.explore-header {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background-color: var(--surface);
+  border-bottom: 1px solid var(--border);
+  z-index: 50;
+  padding-top: env(safe-area-inset-top);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.explore-header-container {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.explore-search-wrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.explore-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.explore-search-input {
+  width: 100%;
+  height: 38px;
+  background-color: var(--surface-2);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0 12px 0 40px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--text-primary);
+  outline: none;
+  transition: background-color var(--transition-fast);
+}
+
+.explore-search-input:focus {
+  background-color: var(--border-light);
+}
+
+.explore-search-input::placeholder {
+  color: var(--text-subtle);
+}
+
+@media (max-width: 768px) {
+  .explore-header {
+    display: block;
+  }
+}
