@@ -99,7 +99,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24px 16px 12px;
+  padding: 8px 16px 12px;
 }
 
 .ig-avatar-wrapper {
@@ -516,8 +516,7 @@
 @media (max-width: 768px) {
   .ig-profile {
     max-width: 100%;
-    /* Pull up to negate header space, but leave a small gap (12px) for breathing room */
-    margin-top: calc(-60px - env(safe-area-inset-top) - 4px);
+    margin-top: env(safe-area-inset-top);
   }
 
   .ig-profile-header {

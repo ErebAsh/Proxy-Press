@@ -159,10 +159,15 @@ export default function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showChatInfo, setShowChatInfo] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [longPressMsg, setLongPressMsg] = useState<string | null>(null);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeConversation = conversations.find(c => c.id === activeChat);
@@ -185,6 +190,50 @@ export default function MessagesPage() {
     scrollToBottom();
   }, [activeConversation?.messages.length, scrollToBottom]);
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video' | 'file') => {
+    const file = e.target.files?.[0];
+    if (!file || !activeChat) return;
+
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      senderId: 'currentUser',
+      text: type === 'image' ? 'Sent an image' : type === 'video' ? 'Sent a video' : `Sent a file: ${file.name}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      status: 'sending',
+      type: type,
+      attachment: URL.createObjectURL(file)
+    };
+
+    setConversations(prev => prev.map(conv => {
+      if (conv.id === activeChat) {
+        return {
+          ...conv,
+          messages: [...conv.messages, newMessage],
+          lastMessage: type === 'image' ? '📷 Image' : type === 'video' ? '🎥 Video' : '📄 File',
+          lastMessageTime: 'Just now'
+        };
+      }
+      return conv;
+    }));
+
+    setShowShareMenu(false);
+    // Simulate server confirmation
+    setTimeout(() => {
+      setConversations(prev => prev.map(conv => {
+        if (conv.id === activeChat) {
+          return {
+            ...conv,
+            messages: conv.messages.map(m => m.id === newMessage.id ? { ...m, status: 'sent' } : m)
+          };
+        }
+        return conv;
+      }));
+    }, 1500);
+  };
+
+  const triggerUpload = (ref: React.RefObject<HTMLInputElement>) => {
+    ref.current?.click();
+  };
   const sendMessage = () => {
     if (!messageInput.trim() || !activeChat) return;
     
@@ -557,17 +606,29 @@ export default function MessagesPage() {
                       <span>Replying to a message</span>
                     </div>
                   )}
-                  <div className={`msg-bubble ${isMine ? 'mine' : 'theirs'} ${msg.type === 'heart' ? 'heart-msg' : ''}`}>
+                  <div className={`msg-bubble ${isMine ? 'mine' : 'theirs'} ${msg.type === 'heart' ? 'heart-msg' : ''} ${msg.attachment ? 'has-attachment' : ''}`}>
                     {msg.type === 'heart' ? (
                       <span className="msg-heart-emoji">❤️</span>
-                    ) : msg.type === 'image' ? (
-                      <div className="msg-image-placeholder">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                          <circle cx="8.5" cy="8.5" r="1.5" />
-                          <polyline points="21 15 16 10 5 21" />
-                        </svg>
-                        <span>Photo</span>
+                    ) : msg.attachment && msg.type === 'image' ? (
+                      <div className="msg-image-attachment">
+                        <img src={msg.attachment} alt="Uploaded" className="msg-attachment-media" />
+                      </div>
+                    ) : msg.attachment && msg.type === 'video' ? (
+                      <div className="msg-video-attachment">
+                        <video src={msg.attachment} className="msg-attachment-media" controls={false} />
+                        <div className="msg-video-overlay">
+                          <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                      </div>
+                    ) : msg.attachment && msg.type === 'file' ? (
+                      <div className="msg-file-attachment">
+                        <div className="msg-file-icon">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        </div>
+                        <div className="msg-file-info">
+                          <span className="msg-file-name">{msg.text.replace('Sent a file: ', '')}</span>
+                          <span className="msg-file-size">File Attachment</span>
+                        </div>
                       </div>
                     ) : (
                       <p className="msg-bubble-text">{msg.text}</p>
@@ -667,19 +728,63 @@ export default function MessagesPage() {
           </div>
         )}
 
+        {/* Share Menu Popup */}
+        {showShareMenu && (
+          <div className="msg-share-menu">
+            <button className="msg-share-item" onClick={() => triggerUpload(imageInputRef)}>
+              <div className="msg-share-icon-circle blue">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </div>
+              <span>Image</span>
+            </button>
+            <button className="msg-share-item" onClick={() => triggerUpload(videoInputRef)}>
+              <div className="msg-share-icon-circle purple">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+              </div>
+              <span>Video</span>
+            </button>
+            <button className="msg-share-item" onClick={() => triggerUpload(docInputRef)}>
+              <div className="msg-share-icon-circle green">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </div>
+              <span>Document</span>
+            </button>
+          </div>
+        )}
+
         {/* Input Area */}
         <div className="msg-input-area">
+          {/* Hidden File Inputs */}
+          <input
+            type="file"
+            ref={imageInputRef}
+            className="msg-hidden-input"
+            accept="image/*"
+            onChange={e => handleFileUpload(e, 'image')}
+          />
+          <input
+            type="file"
+            ref={videoInputRef}
+            className="msg-hidden-input"
+            accept="video/*"
+            onChange={e => handleFileUpload(e, 'video')}
+          />
+          <input
+            type="file"
+            ref={docInputRef}
+            className="msg-hidden-input"
+            accept=".pdf,.doc,.docx,.txt"
+            onChange={e => handleFileUpload(e, 'file')}
+          />
           <div className="msg-input-row">
             <button
-              className={`msg-input-icon-btn ${showEmojiPicker ? 'active' : ''}`}
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              aria-label="Emoji"
+              className={`msg-input-icon-btn ${showShareMenu ? 'active' : ''}`}
+              onClick={() => setShowShareMenu(!showShareMenu)}
+              aria-label="Share options"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                <line x1="9" y1="9" x2="9.01" y2="9" />
-                <line x1="15" y1="9" x2="15.01" y2="9" />
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
             </button>
             <div className="msg-input-wrapper">
@@ -692,43 +797,37 @@ export default function MessagesPage() {
                 onChange={e => setMessageInput(e.target.value)}
                 onKeyDown={handleKeyDown}
               />
-              <button className="msg-input-media-btn" aria-label="Attach media">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
-                </svg>
-              </button>
-              <button className="msg-input-sticker-btn" aria-label="Stickers">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M15.5 2H8.6c-.4 0-.8.2-1.1.5-.3.3-.5.7-.5 1.1v16.8c0 .4.2.8.5 1.1.3.3.7.5 1.1.5h12.8c.4 0 .8-.2 1.1-.5.3-.3.5-.7.5-1.1V7.5L15.5 2z" />
-                  <polyline points="14 2 14 8 20 8" />
+              <button
+                className={`msg-input-emoji-inline-btn ${showEmojiPicker ? 'active' : ''}`}
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                aria-label="Emoji"
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                  <line x1="9" y1="9" x2="9.01" y2="9" />
+                  <line x1="15" y1="9" x2="15.01" y2="9" />
                 </svg>
               </button>
             </div>
-            {messageInput.trim() ? (
-              <button className="msg-send-btn" onClick={sendMessage}>
+            <button 
+              className={`msg-send-btn ${!messageInput.trim() ? 'mic-mode' : ''}`}
+              onClick={() => messageInput.trim() ? sendMessage() : alert('Voice recording feature coming soon!')}
+              aria-label={messageInput.trim() ? "Send message" : "Voice message"}
+            >
+              {messageInput.trim() ? (
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                 </svg>
-              </button>
-            ) : (
-              <div className="msg-quick-actions">
-                <button className="msg-input-icon-btn" onClick={sendHeart} aria-label="Send heart">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                  </svg>
-                </button>
-                <button className="msg-input-icon-btn msg-mic-btn" aria-label="Voice message">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    <line x1="12" y1="19" x2="12" y2="23" />
-                    <line x1="8" y1="23" x2="16" y2="23" />
-                  </svg>
-                </button>
-              </div>
-            )}
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -737,12 +836,15 @@ export default function MessagesPage() {
 
   /* ─── OVERLAY DISMISS ─── */
   useEffect(() => {
-    const handler = () => setLongPressMsg(null);
-    if (longPressMsg) {
+    const handler = () => {
+      setLongPressMsg(null);
+      setShowShareMenu(false);
+    };
+    if (longPressMsg || showShareMenu) {
       document.addEventListener('click', handler);
       return () => document.removeEventListener('click', handler);
     }
-  }, [longPressMsg]);
+  }, [longPressMsg, showShareMenu]);
 
   return (
     <div className="msg-page-wrapper">

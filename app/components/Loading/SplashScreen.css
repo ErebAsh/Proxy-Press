@@ -1,0 +1,149 @@
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  background-color: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.6s;
+  overflow: hidden;
+}
+
+.splash-screen.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.splash-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+/* Unique Animated Ripple Background */
+.splash-bg-ripples {
+  position: absolute;
+  inset: -100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.ripple {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border: 2px solid var(--primary);
+  border-radius: 50%;
+  opacity: 0;
+  animation: ripple-wave 3s infinite cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.ripple:nth-child(2) { animation-delay: 0.5s; }
+.ripple:nth-child(3) { animation-delay: 1s; }
+.ripple:nth-child(4) { animation-delay: 1.5s; }
+
+@keyframes ripple-wave {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.15;
+  }
+  100% {
+    transform: scale(8);
+    opacity: 0;
+  }
+}
+
+/* Logo / Text Reveal */
+.splash-logo-reveal {
+  position: relative;
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -1px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.splash-logo-img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 12px rgba(37, 99, 235, 0.25));
+  animation: logo-fade-in 1s ease-out forwards;
+}
+
+.splash-logo-text {
+  background: linear-gradient(135deg, var(--primary), #8B5CF6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: logo-fade-in 1.2s ease-out forwards;
+}
+
+.splash-loader-bar {
+  width: 140px;
+  height: 3px;
+  background-color: var(--border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  position: relative;
+}
+
+.splash-loader-progress {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(to right, transparent, var(--primary), transparent);
+  animation: progress-slide 1.5s infinite linear;
+}
+
+@keyframes logo-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes progress-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+/* For the "Unique" part: Shimmering news lines */
+.news-line {
+  position: absolute;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--primary), transparent);
+  opacity: 0.1;
+  width: 100%;
+  animation: news-line-flow 4s infinite linear;
+}
+
+.news-line:nth-child(1) { top: 20%; animation-duration: 5s; }
+.news-line:nth-child(2) { top: 40%; animation-duration: 7s; animation-delay: 1s; }
+.news-line:nth-child(3) { top: 60%; animation-duration: 6s; animation-delay: 2s; }
+.news-line:nth-child(4) { top: 80%; animation-duration: 8s; animation-delay: 0.5s; }
+
+@keyframes news-line-flow {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}

@@ -11,6 +11,7 @@
 
 :root {
   --primary: #2563EB;
+  --primary-rgb: 37, 99, 235;
   --primary-light: #DBEAFE;
   --primary-dark: #1D4ED8;
   --accent: #EF4444;
@@ -18,9 +19,11 @@
 
   --bg: #F8FAFC;
   --surface: #FFFFFF;
+  --surface-rgb: 255, 255, 255;
   --surface-2: #F1F5F9;
   --surface-hover: #F8FAFC;
   --border: #E2E8F0;
+  --border-rgb: 226, 232, 240;
   --border-light: #F1F5F9;
 
   --text-primary: #0F172A;
@@ -53,6 +56,7 @@
 ───────────────────────────────────────── */
 .dark {
   --primary: #3B82F6;
+  --primary-rgb: 59, 130, 246;
   --primary-light: #1E3A5F;
   --primary-dark: #2563EB;
   --accent: #F87171;
@@ -60,9 +64,11 @@
 
   --bg: #0F172A;
   --surface: #1E293B;
+  --surface-rgb: 30, 41, 59;
   --surface-2: #263248;
   --surface-hover: #2D3B4F;
   --border: #334155;
+  --border-rgb: 51, 65, 85;
   --border-light: #2D3B4F;
 
   --text-primary: #F1F5F9;
