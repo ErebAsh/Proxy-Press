@@ -1,8 +1,10 @@
-const CACHE_NAME = 'proxy-press-v1.0.0.2';
+const CACHE_NAME = 'proxy-press-v1.0.0.5';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',
   '/logo.png',
+  '/icon-192.png',
+  '/favicon.ico',
 ];
 
 // Install event - caching basic assets
