@@ -122,7 +122,8 @@ export default function SettingsPage() {
             <h2 className="settings-group-title">{group.group}</h2>
             <div className="settings-list">
               {group.items.map((item, i) => {
-                const isLink = !!item.href;
+                const isLink = 'href' in item;
+                const isDanger = 'danger' in item && item.danger;
                 const Content = (
                   <>
                     <div className="settings-item-content">
@@ -145,16 +146,16 @@ export default function SettingsPage() {
                 return isLink ? (
                   <Link 
                     key={i} 
-                    href={item.href!} 
-                    className={`settings-item ${item.danger ? 'settings-item-danger' : ''}`}
+                    href={(item as any).href} 
+                    className={`settings-item ${isDanger ? 'settings-item-danger' : ''}`}
                   >
                     {Content}
                   </Link>
                 ) : (
                   <div 
                     key={i} 
-                    onClick={item.onClick}
-                    className={`settings-item ${item.danger ? 'settings-item-danger' : ''}`}
+                    onClick={(item as any).onClick}
+                    className={`settings-item ${isDanger ? 'settings-item-danger' : ''}`}
                     style={{ cursor: 'pointer' }}
                   >
                     {Content}
