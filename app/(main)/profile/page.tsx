@@ -85,8 +85,8 @@ export default function ProfilePage() {
           {isFollowing ? 'Following' : 'Follow'}
         </button>
         
-        <Link href="/profile/edit" className="ig-action-btn ig-action-btn-secondary">
-          Edit Profile
+        <Link href="/messages?chatId=1" className="ig-action-btn ig-action-btn-message">
+          Message
         </Link>
 
         <button className="ig-action-btn-icon" aria-label="Discover people">

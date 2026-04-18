@@ -416,6 +416,28 @@
   color: #ef4444;
 }
 
+/* Message button style (Follow-like) */
+.ig-action-btn-message {
+  background: linear-gradient(135deg, #333, #000);
+  color: #fff;
+  border: none;
+}
+
+.ig-action-btn-message:hover {
+  background: linear-gradient(135deg, #444, #111);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.ig-action-btn-message:active {
+  transform: translateY(0);
+}
+
+.ig-action-btn-secondary {
+  background-color: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
 
 .ig-action-btn-share {
   background-color: var(--surface-2);

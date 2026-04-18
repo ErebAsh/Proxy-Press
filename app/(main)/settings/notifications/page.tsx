@@ -19,6 +19,20 @@ export default function NotificationSettingsPage() {
     }
   });
 
+  const [confirmModal, setConfirmModal] = useState<{
+    show: boolean;
+    category: 'push' | 'email' | null;
+    key: string | null;
+    label: string | null;
+    currentValue: boolean;
+  }>({
+    show: false,
+    category: null,
+    key: null,
+    label: null,
+    currentValue: false
+  });
+
   useEffect(() => {
     const main = document.getElementById('main-content');
     if (main) {
@@ -27,7 +41,20 @@ export default function NotificationSettingsPage() {
     }
   }, []);
 
-  const toggleSetting = (category: 'push' | 'email', key: string) => {
+  const handleToggleRequest = (category: 'push' | 'email', key: string, label: string, currentValue: boolean) => {
+    setConfirmModal({
+      show: true,
+      category,
+      key,
+      label,
+      currentValue
+    });
+  };
+
+  const confirmToggle = () => {
+    if (!confirmModal.category || !confirmModal.key) return;
+
+    const { category, key } = confirmModal;
     setSettings(prev => {
       const categoryObj = prev[category] as Record<string, boolean>;
       return {
@@ -38,6 +65,7 @@ export default function NotificationSettingsPage() {
         }
       };
     });
+    setConfirmModal(prev => ({ ...prev, show: false }));
   };
 
   return (
@@ -59,25 +87,25 @@ export default function NotificationSettingsPage() {
               label="Likes" 
               sub="When someone likes your post" 
               active={settings.push.likes} 
-              onToggle={() => toggleSetting('push', 'likes')} 
+              onToggle={() => handleToggleRequest('push', 'likes', 'Likes', settings.push.likes)} 
             />
             <ToggleItem 
               label="Comments" 
               sub="When someone comments on your post" 
               active={settings.push.comments} 
-              onToggle={() => toggleSetting('push', 'comments')} 
+              onToggle={() => handleToggleRequest('push', 'comments', 'Comments', settings.push.comments)} 
             />
             <ToggleItem 
               label="Mentions" 
               sub="When someone mentions you in a comment" 
               active={settings.push.mentions} 
-              onToggle={() => toggleSetting('push', 'mentions')} 
+              onToggle={() => handleToggleRequest('push', 'mentions', 'Mentions', settings.push.mentions)} 
             />
             <ToggleItem 
               label="New Posts" 
               sub="From accounts you follow" 
               active={settings.push.newPosts} 
-              onToggle={() => toggleSetting('push', 'newPosts')} 
+              onToggle={() => handleToggleRequest('push', 'newPosts', 'New Posts', settings.push.newPosts)} 
             />
           </div>
         </div>
@@ -89,17 +117,64 @@ export default function NotificationSettingsPage() {
               label="Daily Digest" 
               sub="A summary of what you missed today" 
               active={settings.email.dailyDigest} 
-              onToggle={() => toggleSetting('email', 'dailyDigest')} 
+              onToggle={() => handleToggleRequest('email', 'dailyDigest', 'Daily Digest', settings.email.dailyDigest)} 
+            />
+            <ToggleItem 
+              label="Weekly Report" 
+              sub="Monitor your activity stats over the week" 
+              active={settings.email.weeklyReport} 
+              onToggle={() => handleToggleRequest('email', 'weeklyReport', 'Weekly Report', settings.email.weeklyReport)} 
             />
              <ToggleItem 
               label="Security Alerts" 
               sub="Important account activity" 
               active={settings.email.securityAlerts} 
-              onToggle={() => toggleSetting('email', 'securityAlerts')} 
+              onToggle={() => handleToggleRequest('email', 'securityAlerts', 'Security Alerts', settings.email.securityAlerts)} 
             />
           </div>
         </div>
       </div>
+
+      {confirmModal.show && (
+        <div className="logout-overlay" onClick={() => setConfirmModal(prev => ({ ...prev, show: false }))}>
+          <div className="logout-modal" onClick={e => e.stopPropagation()}>
+            <div className="logout-modal-header">
+              <div className="logout-modal-icon" style={{ 
+                color: confirmModal.currentValue ? '#EF4444' : '#10B981', 
+                background: confirmModal.currentValue ? '#FEE2E2' : '#D1FAE5' 
+              }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                   {confirmModal.currentValue ? (
+                     <path d="M18 6L6 18M6 6l12 12"/>
+                   ) : (
+                     <polyline points="20 6 9 17 4 12"/>
+                   )}
+                </svg>
+              </div>
+              <h2 className="logout-modal-title">
+                {confirmModal.currentValue ? `Turn off ${confirmModal.label}?` : `Turn on ${confirmModal.label}?`}
+              </h2>
+              <p className="logout-modal-desc">
+                {confirmModal.currentValue 
+                  ? `You will stop receiving ${confirmModal.label.toLowerCase()} notifications on this device.` 
+                  : `You will start receiving ${confirmModal.label.toLowerCase()} notifications on this device.`}
+              </p>
+            </div>
+            <div className="logout-modal-actions">
+              <button 
+                className="logout-confirm-btn" 
+                style={{ background: confirmModal.currentValue ? '#EF4444' : 'var(--primary)' }}
+                onClick={confirmToggle}
+              >
+                {confirmModal.currentValue ? 'Turn Off' : 'Turn On'}
+              </button>
+              <button className="logout-cancel-btn" onClick={() => setConfirmModal(prev => ({ ...prev, show: false }))}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

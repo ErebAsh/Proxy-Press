@@ -7,7 +7,7 @@
 .settings-container {
   max-width: 600px;
   margin: 0 auto;
-  padding: 0 16px 100px;
+  padding: 0 16px 10px;
   animation: slideUpFade 0.4s ease-out;
 }
 
@@ -50,7 +50,7 @@
 
 /* Settings List */
 .settings-group {
-  margin-bottom: 32px;
+  margin-bottom: 20px;
 }
 
 .settings-group-title {
@@ -277,12 +277,22 @@
 
 /* Notification Toggles */
 .notification-toggle {
-  width: 44px;
-  height: 24px;
+  width: 46px;
+  height: 26px;
   background: var(--border);
   border-radius: 20px;
   position: relative;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.notification-toggle:hover {
+  filter: brightness(0.95);
+}
+
+.notification-toggle:active {
+  transform: scale(0.95);
 }
 
 .notification-toggle.active {
@@ -290,15 +300,15 @@
 }
 
 .toggle-thumb {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   background: white;
   border-radius: 50%;
   position: absolute;
   top: 2px;
   left: 2px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
 
 .notification-toggle.active .toggle-thumb {
