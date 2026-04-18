@@ -19,10 +19,12 @@ interface Message {
   senderId: string;
   text: string;
   timestamp: string;
-  seen: boolean;
-  type: 'text' | 'image' | 'heart' | 'voice';
+  seen?: boolean;
+  type: 'text' | 'image' | 'heart' | 'voice' | 'video' | 'file';
   replyTo?: string;
   reactions?: string[];
+  status?: 'sending' | 'sent' | 'error';
+  attachment?: string;
 }
 
 interface Conversation {
@@ -196,7 +198,7 @@ export default function MessagesPage() {
 
     const newMessage: Message = {
       id: Date.now().toString(),
-      senderId: 'currentUser',
+      senderId: CURRENT_USER_ID,
       text: type === 'image' ? 'Sent an image' : type === 'video' ? 'Sent a video' : `Sent a file: ${file.name}`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status: 'sending',
@@ -231,7 +233,7 @@ export default function MessagesPage() {
     }, 1500);
   };
 
-  const triggerUpload = (ref: React.RefObject<HTMLInputElement>) => {
+  const triggerUpload = (ref: React.RefObject<HTMLInputElement | null>) => {
     ref.current?.click();
   };
   const sendMessage = () => {
