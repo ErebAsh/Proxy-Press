@@ -59,6 +59,22 @@
   opacity: 0.7;
 }
 
+.notifications-header-btn-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--surface-2);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+}
+
+.notifications-header-btn-icon:active {
+  opacity: 0.7;
+}
+
 @media (max-width: 768px) {
   .notifications-header {
     display: block;
