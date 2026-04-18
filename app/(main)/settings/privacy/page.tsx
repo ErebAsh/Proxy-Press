@@ -8,6 +8,7 @@ export default function PrivacySettingsPage() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showConfirmActivity, setShowConfirmActivity] = useState(false);
   const [showFutureModal, setShowFutureModal] = useState(false);
+  const [blockedCount, setBlockedCount] = useState(0);
   const [privacy, setPrivacy] = useState({
     // ... same as before
     account: {
@@ -29,8 +30,20 @@ export default function PrivacySettingsPage() {
     const main = document.getElementById('main-content');
     if (main) {
       main.classList.add('no-top-padding');
-      return () => main.classList.remove('no-top-padding');
     }
+
+    const saved = localStorage.getItem('blockedUsers');
+    if (saved) {
+      try {
+        setBlockedCount(JSON.parse(saved).length);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    return () => {
+      if (main) main.classList.remove('no-top-padding');
+    };
   }, []);
 
   const toggleSetting = (category: 'account' | 'data', key: string) => {
@@ -110,7 +123,11 @@ export default function PrivacySettingsPage() {
           <h2 className="settings-group-title">Interactions</h2>
           <div className="settings-list">
              <LinkItem label="Comments & Mentions" value={privacy.interactions.comments} href="/settings/privacy/interactions" />
-             <LinkItem label="Blocked Accounts" value="0 Users" href="/settings/privacy/blocked" />
+             <LinkItem 
+              label="Blocked Accounts" 
+              value={`${blockedCount} Users`} 
+              href="/settings/privacy/blocked" 
+            />
           </div>
         </div>
 

@@ -5,15 +5,49 @@ import { useEffect, useState } from 'react';
 import '../../settings.css';
 
 export default function BlockedAccountsPage() {
-  const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
+  const [blockedUsers, setBlockedUsers] = useState<{id: string, name: string}[]>([]);
 
   useEffect(() => {
     const main = document.getElementById('main-content');
     if (main) {
       main.classList.add('no-top-padding');
-      return () => main.classList.remove('no-top-padding');
     }
+
+    const savedIds = localStorage.getItem('blockedUsers');
+    const savedNames = localStorage.getItem('blockedUserNames');
+    
+    if (savedIds && savedNames) {
+      try {
+        const rawIds = JSON.parse(savedIds) as string[];
+        const ids = Array.from(new Set(rawIds)); // Deduplicate
+        const names = JSON.parse(savedNames) as Record<string, string>;
+        const list = ids.map(id => ({ id, name: names[id] || id }));
+        setBlockedUsers(list);
+      } catch (e) {
+        console.error('Error loading blocked users', e);
+      }
+    }
+
+    return () => {
+      if (main) main.classList.remove('no-top-padding');
+    };
   }, []);
+
+  const handleUnblock = (userId: string) => {
+    const newBlocked = blockedUsers.filter(u => u.id !== userId);
+    setBlockedUsers(newBlocked);
+    
+    const ids = newBlocked.map(u => u.id);
+    localStorage.setItem('blockedUsers', JSON.stringify(ids));
+    
+    // Clean up names too if needed
+    const savedNames = localStorage.getItem('blockedUserNames');
+    if (savedNames) {
+      const names = JSON.parse(savedNames);
+      delete names[userId];
+      localStorage.setItem('blockedUserNames', JSON.stringify(names));
+    }
+  };
 
   return (
     <div className="settings-container">
@@ -30,13 +64,13 @@ export default function BlockedAccountsPage() {
         {blockedUsers.length > 0 ? (
           <div className="settings-list">
             {blockedUsers.map(user => (
-              <div key={user} className="settings-item">
+              <div key={user.id} className="settings-item">
                 <div className="settings-item-content">
                   <div className="settings-item-text">
-                    <span className="settings-item-label">{user}</span>
+                    <span className="settings-item-label">{user.name}</span>
                   </div>
                 </div>
-                <button className="unblock-btn">Unblock</button>
+                <button className="unblock-btn" onClick={() => handleUnblock(user.id)}>Unblock</button>
               </div>
             ))}
           </div>
