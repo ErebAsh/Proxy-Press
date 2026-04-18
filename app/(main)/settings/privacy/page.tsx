@@ -6,7 +6,10 @@ import '../settings.css';
 
 export default function PrivacySettingsPage() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showConfirmActivity, setShowConfirmActivity] = useState(false);
+  const [showFutureModal, setShowFutureModal] = useState(false);
   const [privacy, setPrivacy] = useState({
+    // ... same as before
     account: {
       privateAccount: false,
       activityStatus: true,
@@ -35,6 +38,10 @@ export default function PrivacySettingsPage() {
       setShowConfirmModal(true);
       return;
     }
+    if (key === 'activityStatus') {
+      setShowConfirmActivity(true);
+      return;
+    }
     setPrivacy(prev => ({
       ...prev,
       [category]: {
@@ -53,6 +60,17 @@ export default function PrivacySettingsPage() {
       }
     }));
     setShowConfirmModal(false);
+  };
+
+  const confirmToggleActivity = () => {
+    setPrivacy(prev => ({
+      ...prev,
+      account: {
+        ...prev.account,
+        activityStatus: !prev.account.activityStatus
+      }
+    }));
+    setShowConfirmActivity(false);
   };
 
   return (
@@ -85,13 +103,11 @@ export default function PrivacySettingsPage() {
           </div>
         </div>
 
-        {/* ... Rest of settings same as before */}
         <div className="settings-group">
           <h2 className="settings-group-title">Interactions</h2>
           <div className="settings-list">
-             <LinkItem label="Comments" value={privacy.interactions.comments} />
-             <LinkItem label="Mentions" value={privacy.interactions.mentions} />
-             <LinkItem label="Blocked Accounts" value="0 Users" />
+             <LinkItem label="Comments & Mentions" value={privacy.interactions.comments} href="/settings/privacy/interactions" />
+             <LinkItem label="Blocked Accounts" value="0 Users" href="/settings/privacy/blocked" />
           </div>
         </div>
 
@@ -104,7 +120,7 @@ export default function PrivacySettingsPage() {
               active={privacy.data.personalizedAds} 
               onToggle={() => toggleSetting('data', 'personalizedAds')} 
             />
-            <div className="settings-item" style={{ cursor: 'pointer' }}>
+            <div className="settings-item" style={{ cursor: 'pointer' }} onClick={() => setShowFutureModal(true)}>
                 <div className="settings-item-content">
                   <div className="settings-item-text">
                     <span className="settings-item-label" style={{ color: 'var(--primary)', fontWeight: 700 }}>Download My Data</span>
@@ -147,6 +163,65 @@ export default function PrivacySettingsPage() {
           </div>
         </div>
       )}
+
+      {showConfirmActivity && (
+        <div className="logout-overlay" onClick={() => setShowConfirmActivity(false)}>
+          <div className="logout-modal" onClick={e => e.stopPropagation()}>
+            <div className="logout-modal-header">
+              <div className="logout-modal-icon" style={{ color: 'var(--primary)', background: 'var(--primary-light)' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                </svg>
+              </div>
+              <h2 className="logout-modal-title">
+                {privacy.account.activityStatus ? 'Hide Activity Status?' : 'Show Activity Status?'}
+              </h2>
+              <p className="logout-modal-desc">
+                {privacy.account.activityStatus 
+                  ? "Others won't be able to see when you're active. You also won't be able to see their status." 
+                  : "Allow accounts you follow and people you message to see when you were last active."}
+              </p>
+            </div>
+            <div className="logout-modal-actions">
+              <button 
+                className="logout-confirm-btn" 
+                style={{ background: 'var(--primary)' }}
+                onClick={confirmToggleActivity}
+              >
+                {privacy.account.activityStatus ? 'Hide Status' : 'Show Status'}
+              </button>
+              <button className="logout-cancel-btn" onClick={() => setShowConfirmActivity(false)}>Not Now</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showFutureModal && (
+        <div className="logout-overlay" onClick={() => setShowFutureModal(false)}>
+          <div className="logout-modal" onClick={e => e.stopPropagation()}>
+            <div className="logout-modal-header">
+              <div className="logout-modal-icon" style={{ color: '#F59E0B', background: '#FEF3C7' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                   <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+              </div>
+              <h2 className="logout-modal-title">Coming Soon!</h2>
+              <p className="logout-modal-desc">
+                We're working hard on the data export feature. This feature will be available in a future update.
+              </p>
+            </div>
+            <div className="logout-modal-actions">
+              <button 
+                className="logout-confirm-btn" 
+                style={{ background: 'var(--primary)' }}
+                onClick={() => setShowFutureModal(false)}
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -167,9 +242,9 @@ function ToggleItem({ label, sub, active, onToggle }: { label: string, sub: stri
   );
 }
 
-function LinkItem({ label, value }: { label: string, value: string }) {
+function LinkItem({ label, value, href }: { label: string, value: string, href: string }) {
     return (
-      <div className="settings-item" style={{ cursor: 'pointer' }}>
+      <Link href={href} className="settings-item" style={{ cursor: 'pointer', textDecoration: 'none' }}>
         <div className="settings-item-content">
           <div className="settings-item-text">
             <span className="settings-item-label">{label}</span>
@@ -183,6 +258,6 @@ function LinkItem({ label, value }: { label: string, value: string }) {
                 </svg>
             </div>
         </div>
-      </div>
+      </Link>
     );
 }
