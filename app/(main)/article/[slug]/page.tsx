@@ -24,7 +24,7 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ slug: 
   const [activeReplyId, setActiveReplyId] = useState<number | null>(null);
   const [replyText, setReplyText] = useState('');
   const [comments, setComments] = useState<{
-    id: number, author: string, text: string, time: string, likes: number, isLiked: boolean
+    id: number, author: string, text: string, time: string, likes: number, isLiked: boolean, parentId?: number
   }[]>([
     { id: 1, author: 'Student #142', text: 'Great coverage! The campus atmosphere is really captured here.', time: '2h ago', likes: 12, isLiked: false },
     { id: 2, author: 'Faculty Member', text: 'Excellent details on the schedule changes. Very helpful.', time: '5h ago', likes: 24, isLiked: true }
