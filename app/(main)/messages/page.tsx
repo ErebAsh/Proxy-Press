@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import MobileBottomNav from '@/app/components/Sidebar/MobileBottomNav';
@@ -153,8 +153,8 @@ const MOCK_CONVERSATIONS: Conversation[] = [
 
 const EMOJI_LIST = ['😀', '😂', '❤️', '🔥', '👍', '😍', '🎉', '💯', '🙌', '✨', '😎', '🤔', '👀', '💪', '🚀', '⭐', '🌟', '💫', '🎊', '🥳', '😊', '🤗', '💕', '🙏'];
 
-/* ─────────── COMPONENT ─────────── */
-export default function MessagesPage() {
+/* ─────────── COMPONENTS ─────────── */
+function MessagesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>(MOCK_CONVERSATIONS);
@@ -893,5 +893,13 @@ export default function MessagesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function MessagesPage() {
+  return (
+    <Suspense fallback={<div className="msg-loading">Loading messages...</div>}>
+      <MessagesContent />
+    </Suspense>
   );
 }
