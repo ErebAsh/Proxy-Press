@@ -11,17 +11,12 @@ export default function NotificationSettingsPage() {
       comments: true,
       mentions: true,
       newPosts: false,
-    },
-    email: {
-      dailyDigest: true,
-      weeklyReport: false,
-      securityAlerts: true,
     }
   });
 
   const [confirmModal, setConfirmModal] = useState<{
     show: boolean;
-    category: 'push' | 'email' | null;
+    category: 'push' | null;
     key: string | null;
     label: string | null;
     currentValue: boolean;
@@ -41,7 +36,7 @@ export default function NotificationSettingsPage() {
     }
   }, []);
 
-  const handleToggleRequest = (category: 'push' | 'email', key: string, label: string, currentValue: boolean) => {
+  const handleToggleRequest = (category: 'push', key: string, label: string, currentValue: boolean) => {
     setConfirmModal({
       show: true,
       category,
@@ -106,30 +101,6 @@ export default function NotificationSettingsPage() {
               sub="From accounts you follow" 
               active={settings.push.newPosts} 
               onToggle={() => handleToggleRequest('push', 'newPosts', 'New Posts', settings.push.newPosts)} 
-            />
-          </div>
-        </div>
-
-        <div className="settings-group">
-          <h2 className="settings-group-title">Email Notifications</h2>
-          <div className="settings-list">
-            <ToggleItem 
-              label="Daily Digest" 
-              sub="A summary of what you missed today" 
-              active={settings.email.dailyDigest} 
-              onToggle={() => handleToggleRequest('email', 'dailyDigest', 'Daily Digest', settings.email.dailyDigest)} 
-            />
-            <ToggleItem 
-              label="Weekly Report" 
-              sub="Monitor your activity stats over the week" 
-              active={settings.email.weeklyReport} 
-              onToggle={() => handleToggleRequest('email', 'weeklyReport', 'Weekly Report', settings.email.weeklyReport)} 
-            />
-             <ToggleItem 
-              label="Security Alerts" 
-              sub="Important account activity" 
-              active={settings.email.securityAlerts} 
-              onToggle={() => handleToggleRequest('email', 'securityAlerts', 'Security Alerts', settings.email.securityAlerts)} 
             />
           </div>
         </div>

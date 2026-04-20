@@ -2,6 +2,7 @@
   width: 100%;
   max-width: 960px;
   margin: 0 auto;
+  padding-top: 24px;
   animation: fade-in-up 0.5s ease;
 }
 

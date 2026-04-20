@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import MobileBottomNav from '@/app/components/Sidebar/MobileBottomNav';
 import './messages.css';
+import { getConversations, sendMessage as dbSendMessage, uploadMedia, createStory, getStories, getCurrentUser, getUserProfile } from '@/lib/actions';
 
 /* ─────────── TYPES ─────────── */
 interface User {
@@ -62,121 +63,7 @@ interface Conversation {
 /* ─────────── MOCK DATA ─────────── */
 const CURRENT_USER_ID = 'me';
 
-const MOCK_CONVERSATIONS: Conversation[] = [
-  {
-    id: '1',
-    user: { id: 'u1', name: 'Arjun Mehta', avatar: 'AM', online: true },
-    lastMessage: 'Did you see the new campus event? 🎉',
-    lastMessageTime: '2m',
-    unreadCount: 3,
-    isTyping: false,
-    muted: false,
-    vanishMode: false,
-    messages: [
-      { id: 'm1', senderId: 'u1', text: 'Hey! How are you doing?', timestamp: '10:30 AM', seen: true, type: 'text' },
-      { id: 'm2', senderId: CURRENT_USER_ID, text: 'I\'m great! Just finished my assignment 📝', timestamp: '10:32 AM', seen: true, type: 'text' },
-      { id: 'm3', senderId: 'u1', text: 'Nice! Wanna grab lunch later?', timestamp: '10:33 AM', seen: true, type: 'text' },
-      { id: 'm4', senderId: CURRENT_USER_ID, text: 'Sure, where do you wanna go?', timestamp: '10:35 AM', seen: true, type: 'text' },
-      { id: 'm5', senderId: 'u1', text: 'Let\'s try the new café near the library ☕', timestamp: '10:36 AM', seen: true, type: 'text' },
-      { id: 'm6', senderId: CURRENT_USER_ID, text: 'Sounds perfect! See you at 1?', timestamp: '10:38 AM', seen: true, type: 'text' },
-      { id: 'm7', senderId: 'u1', text: '👍 Done!', timestamp: '10:39 AM', seen: true, type: 'text' },
-      { id: 'm8', senderId: 'u1', text: 'Did you see the new campus event? 🎉', timestamp: '11:02 AM', seen: false, type: 'text' },
-    ],
-  },
-  {
-    id: '2',
-    user: { id: 'u2', name: 'Priya Sharma', avatar: 'PS', online: true },
-    lastMessage: 'Sent a photo',
-    lastMessageTime: '15m',
-    unreadCount: 1,
-    isTyping: true,
-    muted: false,
-    vanishMode: false,
-    messages: [
-      { id: 'm1', senderId: 'u2', text: 'Check out this sunset from the rooftop! 🌅', timestamp: '9:15 AM', seen: true, type: 'text' },
-      { id: 'm2', senderId: CURRENT_USER_ID, text: 'Wow that\'s beautiful!', timestamp: '9:20 AM', seen: true, type: 'text' },
-      { id: 'm3', senderId: 'u2', text: 'Right? We should go there together sometime', timestamp: '9:21 AM', seen: true, type: 'text' },
-      { id: 'm4', senderId: CURRENT_USER_ID, text: 'Definitely! Maybe this weekend?', timestamp: '9:25 AM', seen: true, type: 'text' },
-      { id: 'm5', senderId: 'u2', text: 'Sent a photo', timestamp: '9:30 AM', seen: false, type: 'image' },
-    ],
-  },
-  {
-    id: '3',
-    user: { id: 'u3', name: 'Rahul Verma', avatar: 'RV', online: false, lastSeen: '1h ago' },
-    lastMessage: 'Sure, I\'ll send you the notes tonight',
-    lastMessageTime: '1h',
-    unreadCount: 0,
-    isTyping: false,
-    muted: false,
-    vanishMode: false,
-    messages: [
-      { id: 'm1', senderId: CURRENT_USER_ID, text: 'Hey Rahul, can you share the Physics notes?', timestamp: '8:00 AM', seen: true, type: 'text' },
-      { id: 'm2', senderId: 'u3', text: 'Sure, I\'ll send you the notes tonight', timestamp: '8:05 AM', seen: true, type: 'text' },
-    ],
-  },
-  {
-    id: '4',
-    user: { id: 'u4', name: 'Sneha Patel', avatar: 'SP', online: true },
-    lastMessage: 'The hackathon was amazing! 🚀',
-    lastMessageTime: '3h',
-    unreadCount: 0,
-    isTyping: false,
-    muted: true,
-    vanishMode: false,
-    messages: [
-      { id: 'm1', senderId: 'u4', text: 'Did you register for the hackathon?', timestamp: 'Yesterday', seen: true, type: 'text' },
-      { id: 'm2', senderId: CURRENT_USER_ID, text: 'Yes! Our team is ready 💪', timestamp: 'Yesterday', seen: true, type: 'text' },
-      { id: 'm3', senderId: 'u4', text: 'The hackathon was amazing! 🚀', timestamp: '6:00 AM', seen: true, type: 'text' },
-    ],
-  },
-  {
-    id: '5',
-    user: { id: 'u5', name: 'Karan Singh', avatar: 'KS', online: false, lastSeen: '3h ago' },
-    lastMessage: 'Thanks for the help!',
-    lastMessageTime: '5h',
-    unreadCount: 0,
-    isTyping: false,
-    muted: false,
-    vanishMode: false,
-    messages: [
-      { id: 'm1', senderId: 'u5', text: 'Can you help me with the project?', timestamp: 'Yesterday', seen: true, type: 'text' },
-      { id: 'm2', senderId: CURRENT_USER_ID, text: 'Of course! What do you need?', timestamp: 'Yesterday', seen: true, type: 'text' },
-      { id: 'm3', senderId: 'u5', text: 'I need help with the database schema', timestamp: 'Yesterday', seen: true, type: 'text' },
-      { id: 'm4', senderId: CURRENT_USER_ID, text: 'I\'ll review it and send feedback', timestamp: 'Yesterday', seen: true, type: 'text' },
-      { id: 'm5', senderId: 'u5', text: 'Thanks for the help!', timestamp: '4:00 AM', seen: true, type: 'text' },
-    ],
-  },
-  {
-    id: '6',
-    user: { id: 'u6', name: 'Ananya Gupta', avatar: 'AG', online: true },
-    lastMessage: 'See you at the meetup! 👋',
-    lastMessageTime: '1d',
-    unreadCount: 0,
-    isTyping: false,
-    muted: false,
-    vanishMode: false,
-    messages: [
-      { id: 'm1', senderId: 'u6', text: 'Are you going to the tech meetup?', timestamp: 'Mon', seen: true, type: 'text' },
-      { id: 'm2', senderId: CURRENT_USER_ID, text: 'Wouldn\'t miss it!', timestamp: 'Mon', seen: true, type: 'text' },
-      { id: 'm3', senderId: 'u6', text: 'See you at the meetup! 👋', timestamp: 'Mon', seen: true, type: 'text' },
-    ],
-  },
-  {
-    id: '7',
-    user: { id: 'u7', name: 'Vikram Joshi', avatar: 'VJ', online: false, lastSeen: 'Yesterday' },
-    lastMessage: 'Let me know when you\'re free',
-    lastMessageTime: '2d',
-    unreadCount: 0,
-    isTyping: false,
-    muted: false,
-    vanishMode: false,
-    messages: [
-      { id: 'm1', senderId: 'u7', text: 'Hey, wanna practice for the interview?', timestamp: 'Sun', seen: true, type: 'text' },
-      { id: 'm2', senderId: CURRENT_USER_ID, text: 'Good idea! Let me check my schedule', timestamp: 'Sun', seen: true, type: 'text' },
-      { id: 'm3', senderId: 'u7', text: 'Let me know when you\'re free', timestamp: 'Sun', seen: true, type: 'text' },
-    ],
-  },
-];
+const MOCK_CONVERSATIONS: Conversation[] = [];
 
 const EMOJI_LIST = ['😀', '😂', '❤️', '🔥', '👍', '😍', '🎉', '💯', '🙌', '✨', '😎', '🤔', '👀', '💪', '🚀', '⭐', '🌟', '💫', '🎊', '🥳', '😊', '🤗', '💕', '🙏'];
 
@@ -191,49 +78,7 @@ const STORY_GRADIENTS = [
   'linear-gradient(135deg, #ff9a9e, #fecfef)',
 ];
 
-const MOCK_STORIES: UserStory[] = [
-  {
-    userId: 'u1',
-    userName: 'Arjun Mehta',
-    userAvatar: 'AM',
-    seen: false,
-    slides: [
-      { id: 's1-1', type: 'text', text: 'Just aced my DSA exam!', emoji: '🎯', caption: '3 hours of grinding paid off', gradient: STORY_GRADIENTS[0], timestamp: '2h ago' },
-      { id: 's1-2', type: 'image', mediaUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&h=900&fit=crop', caption: 'Campus sunset hits different 🌅', gradient: STORY_GRADIENTS[1], timestamp: '1h ago' },
-    ],
-  },
-  {
-    userId: 'u2',
-    userName: 'Priya Sharma',
-    userAvatar: 'PS',
-    seen: false,
-    slides: [
-      { id: 's2-1', type: 'image', mediaUrl: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&h=900&fit=crop', caption: 'New semester, new goals ✨', gradient: STORY_GRADIENTS[2], timestamp: '4h ago' },
-      { id: 's2-2', type: 'text', text: 'Café study sessions > library', emoji: '☕', gradient: STORY_GRADIENTS[3], timestamp: '3h ago' },
-      { id: 's2-3', type: 'image', mediaUrl: 'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=600&h=900&fit=crop', caption: 'Weekend plans anyone? 🎉', gradient: STORY_GRADIENTS[4], timestamp: '30m ago' },
-    ],
-  },
-  {
-    userId: 'u4',
-    userName: 'Sneha Patel',
-    userAvatar: 'SP',
-    seen: false,
-    slides: [
-      { id: 's4-1', type: 'image', mediaUrl: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=600&h=900&fit=crop', caption: 'Hackathon winning team! 🏆', gradient: STORY_GRADIENTS[5], timestamp: '6h ago' },
-      { id: 's4-2', type: 'text', text: '48 hours well spent', emoji: '🚀', caption: 'Sleep is overrated 😅', gradient: STORY_GRADIENTS[0], timestamp: '5h ago' },
-    ],
-  },
-  {
-    userId: 'u6',
-    userName: 'Ananya Gupta',
-    userAvatar: 'AG',
-    seen: false,
-    slides: [
-      { id: 's6-1', type: 'image', mediaUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&h=900&fit=crop', caption: 'Tech meetup was insane! 💡', gradient: STORY_GRADIENTS[6], timestamp: '5h ago' },
-      { id: 's6-2', type: 'text', text: 'Learning Rust 🦀', emoji: '💻', gradient: STORY_GRADIENTS[7], timestamp: '2h ago' },
-    ],
-  },
-];
+const MOCK_STORIES: UserStory[] = [];
 
 const STORY_DURATION = 5000; // 5 seconds per slide
 
@@ -241,8 +86,140 @@ const STORY_DURATION = 5000; // 5 seconds per slide
 function MessagesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [conversations, setConversations] = useState<Conversation[]>(MOCK_CONVERSATIONS);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [dbConversations, setDbConversations] = useState<any[]>([]);
   const [activeChat, setActiveChat] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string>('me');
+
+  useEffect(() => {
+    async function loadInitialData() {
+      try {
+        const currentUser = await getCurrentUser();
+        const myId = currentUser?.id || 'me';
+        setCurrentUserId(myId);
+
+        const targetUserId = searchParams.get('userId');
+        const [convs, dbStories] = await Promise.all([
+          getConversations(myId),
+          getStories()
+        ]);
+        
+        let mappedConvs: Conversation[] = [];
+        if (convs && convs.length > 0) {
+          console.log('Loaded conversations from DB:', convs);
+          
+          mappedConvs = convs.map((dbConv: any) => {
+            // Find the other participant
+            const otherParticipant = dbConv.participants?.find((p: any) => p.userId !== myId);
+            const otherUser = otherParticipant?.user;
+            
+            return {
+              id: dbConv.id,
+              user: {
+                id: otherUser?.id || 'unknown',
+                name: otherUser?.name || 'Unknown User',
+                avatar: otherUser?.avatar || 'U',
+                online: true, // Simplified
+              },
+              lastMessage: dbConv.lastMessage || '',
+              lastMessageTime: dbConv.lastMessageTime || '',
+              unreadCount: dbConv.unreadCount || 0,
+              isTyping: false,
+              muted: dbConv.muted || false,
+              vanishMode: dbConv.vanishMode || false,
+              messages: (dbConv.messages || []).map((m: any) => ({
+                id: m.id,
+                senderId: m.senderId === myId ? 'me' : m.senderId,
+                text: m.text,
+                timestamp: m.timestamp,
+                seen: m.seen,
+                type: m.type || 'text',
+                attachment: m.attachment,
+              })).reverse(), // DB returns desc, UI might want asc for chat history
+            };
+          });
+
+          setConversations(mappedConvs);
+        }
+
+        if (targetUserId) {
+           const existing = mappedConvs.find(c => c.user.id === targetUserId);
+           if (existing) {
+             setActiveChat(existing.id);
+           } else {
+             const targetUser = await getUserProfile(targetUserId);
+             if (targetUser) {
+               const newConv: Conversation = {
+                 id: `new_${targetUserId}`,
+                 user: {
+                   id: targetUser.id,
+                   name: targetUser.name,
+                   avatar: targetUser.profilePicture || '👤',
+                   online: true,
+                 },
+                 lastMessage: '',
+                 lastMessageTime: '',
+                 unreadCount: 0,
+                 isTyping: false,
+                 muted: false,
+                 vanishMode: false,
+                 messages: [],
+               };
+               setConversations(prev => {
+                   if (prev.find(c => c.id === newConv.id)) return prev;
+                   return [newConv, ...prev];
+               });
+               setActiveChat(newConv.id);
+             }
+           }
+        } else {
+            const chatId = searchParams.get('chatId');
+            if (chatId) {
+                setActiveChat(chatId);
+            }
+        }
+
+        if (dbStories && dbStories.length > 0) {
+          // Find current user's stories
+          const myDbStory = dbStories.find((s: any) => s.userId === myId);
+          if (myDbStory && myDbStory.slides) {
+            setMyStories(myDbStory.slides.map((s: any) => ({
+              ...s,
+              type: s.type || 'image',
+              timestamp: s.timestamp || 'Just now'
+            })));
+          }
+
+          // Map other stories to UI format
+          const otherStories = dbStories
+            .filter((s: any) => s.userId !== myId)
+            .map((s: any) => ({
+              userId: s.userId,
+              userName: s.user?.name || 'User',
+              userAvatar: (s.user?.name || 'U').substring(0, 1),
+              seen: s.seen,
+              slides: s.slides.map((sl: any) => ({
+                ...sl,
+                type: sl.type || 'image',
+                timestamp: sl.timestamp || 'Just now'
+              }))
+            }));
+          
+          if (otherStories.length > 0) {
+            setStories(otherStories);
+          } else {
+            setStories([]);
+          }
+        } else {
+           setStories([]);
+           setConversations([]);
+        }
+      } catch (err) {
+        console.error('Failed to load initial messages data:', err);
+      }
+    }
+    loadInitialData();
+  }, []);
   const [messageInput, setMessageInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -257,7 +234,7 @@ function MessagesContent() {
   const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
 
   /* ─── Story State ─── */
-  const [stories, setStories] = useState<UserStory[]>(MOCK_STORIES);
+  const [stories, setStories] = useState<UserStory[]>([]);
   const [myStories, setMyStories] = useState<StorySlide[]>([]);
   const [activeStoryUserIdx, setActiveStoryUserIdx] = useState<number | null>(null);
   const [activeSlideIdx, setActiveSlideIdx] = useState(0);
@@ -369,7 +346,7 @@ function MessagesContent() {
   const allViewableStories = useCallback(() => {
     const result: UserStory[] = [];
     if (myStories.length > 0) {
-      result.push({ userId: 'me', userName: 'Your Story', userAvatar: '✦', slides: myStories, seen: true });
+      result.push({ userId: 'me', userName: 'Your Story', userAvatar: '✦', slides: myStories, seen: false });
     }
     result.push(...stories);
     return result;
@@ -477,38 +454,66 @@ function MessagesContent() {
     }, 900);
   };
 
-  const handleCreateStory = () => {
-    if (createStoryTab === 'text') {
-      if (!createStoryText.trim()) return;
-      const newSlide: StorySlide = {
-        id: `my-${Date.now()}`,
-        type: 'text',
-        text: createStoryText.trim(),
+  const handleCreateStory = async () => {
+    let mediaUrl = '';
+    let type: 'text' | 'image' | 'video' = 'text';
+
+    try {
+      if (createStoryTab === 'text') {
+        if (!createStoryText.trim()) return;
+        type = 'text';
+      } else {
+        if (!createStoryMedia) return;
+        type = createStoryMediaType === 'video' ? 'video' : 'image';
+        
+        // 1. Upload media
+        const res = await fetch(createStoryMedia);
+        const blob = await res.blob();
+        const file = new File([blob], `story-${Date.now()}.${type === 'video' ? 'webm' : 'jpg'}`, { type: blob.type });
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('category', 'stories');
+        
+        const uploadRes = await uploadMedia(formData);
+        mediaUrl = uploadRes.url;
+      }
+
+      // 2. Persist to DB
+      await createStory({
+        userId: currentUserId,
+        type,
+        mediaUrl,
+        text: createStoryText.trim() || undefined,
+        caption: createStoryCaption.trim() || undefined,
         gradient: STORY_GRADIENTS[createStoryGradient],
-        timestamp: 'Just now',
-      };
-      setMyStories(prev => [...prev, newSlide]);
-    } else {
-      if (!createStoryMedia) return;
+      });
+
+      // Update local state for immediate feedback (simplified)
       const newSlide: StorySlide = {
         id: `my-${Date.now()}`,
-        type: createStoryMediaType === 'video' ? 'video' : 'image',
-        mediaUrl: createStoryMedia,
+        type,
+        text: createStoryText.trim(),
+        mediaUrl: mediaUrl || createStoryMedia || undefined,
         caption: createStoryCaption.trim() || undefined,
         gradient: STORY_GRADIENTS[createStoryGradient],
         timestamp: 'Just now',
       };
       setMyStories(prev => [...prev, newSlide]);
+
+      setCreateStoryText('');
+      setCreateStoryGradient(0);
+      setCreateStoryMedia(null);
+      setCreateStoryMediaType(null);
+      setCreateStoryCaption('');
+      setCreateStoryTab('text');
+      setShowCreateStory(false);
+      setShowStorySentToast(true);
+      setTimeout(() => setShowStorySentToast(false), 2800);
+    } catch (err) {
+      console.error('Story creation error:', err);
+      alert('Failed to create story.');
     }
-    setCreateStoryText('');
-    setCreateStoryGradient(0);
-    setCreateStoryMedia(null);
-    setCreateStoryMediaType(null);
-    setCreateStoryCaption('');
-    setCreateStoryTab('text');
-    setShowCreateStory(false);
-    setShowStorySentToast(true);
-    setTimeout(() => setShowStorySentToast(false), 2800);
   };
 
   const handleStoryMediaUpload = (e: React.ChangeEvent<HTMLInputElement>, mediaType: 'image' | 'video') => {
@@ -680,13 +685,7 @@ function MessagesContent() {
     }
   };
 
-  useEffect(() => {
-    const chatId = searchParams.get('chatId');
-    if (chatId) {
-      setActiveChat(chatId);
-    }
-  }, [searchParams]);
-
+  // Duplicate useEffect removed
   const activeConversation = conversations.find(c => c.id === activeChat);
 
   const scrollToBottom = useCallback(() => {
@@ -707,10 +706,11 @@ function MessagesContent() {
     scrollToBottom();
   }, [activeConversation?.messages.length, scrollToBottom]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video' | 'file') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video' | 'file') => {
     const file = e.target.files?.[0];
     if (!file || !activeChat) return;
 
+    const previewUrl = URL.createObjectURL(file);
     const newMessage: Message = {
       id: Date.now().toString(),
       senderId: CURRENT_USER_ID,
@@ -718,9 +718,10 @@ function MessagesContent() {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status: 'sending',
       type: type,
-      attachment: URL.createObjectURL(file)
+      attachment: previewUrl
     };
 
+    // Update local state for immediate response
     setConversations(prev => prev.map(conv => {
       if (conv.id === activeChat) {
         return {
@@ -734,24 +735,56 @@ function MessagesContent() {
     }));
 
     setShowShareMenu(false);
-    // Simulate server confirmation
-    setTimeout(() => {
+
+    try {
+      // 1. Upload to server
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('category', type === 'video' ? 'videos' : 'images');
+      const uploadRes = await uploadMedia(formData);
+
+      // 2. Persist to DB
+      const res = await dbSendMessage({
+        conversationId: activeChat,
+        senderId: currentUserId,
+        text: newMessage.text,
+        type: type,
+        attachment: uploadRes.url,
+      });
+
+      if (res.conversationId && res.conversationId !== activeChat) {
+        setActiveChat(res.conversationId);
+        setConversations(prev => prev.map(c => c.id === activeChat ? { ...c, id: res.conversationId } : c));
+      }
+
+      // Update status to sent
       setConversations(prev => prev.map(conv => {
         if (conv.id === activeChat) {
           return {
             ...conv,
-            messages: conv.messages.map(m => m.id === newMessage.id ? { ...m, status: 'sent' } : m)
+            messages: conv.messages.map(m => m.id === newMessage.id ? { ...m, status: 'sent', attachment: uploadRes.url } : m)
           };
         }
         return conv;
       }));
-    }, 1500);
+    } catch (err) {
+      console.error('File upload error:', err);
+      setConversations(prev => prev.map(conv => {
+        if (conv.id === activeChat) {
+          return {
+            ...conv,
+            messages: conv.messages.map(m => m.id === newMessage.id ? { ...m, status: 'error' } : m)
+          };
+        }
+        return conv;
+      }));
+    }
   };
 
   const triggerUpload = (ref: React.RefObject<HTMLInputElement | null>) => {
     ref.current?.click();
   };
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!messageInput.trim() || !activeChat) return;
     
     const newMsg: Message = {
@@ -773,34 +806,23 @@ function MessagesContent() {
     setReplyingTo(null);
     setShowEmojiPicker(false);
 
-    // Simulate auto-reply after 2 seconds
-    setTimeout(() => {
-      const replies = [
-        'That sounds great! 😊',
-        'Haha, I know right?',
-        'Let me think about it...',
-        'Absolutely! 🎉',
-        'Good point!',
-        'I\'ll get back to you on that',
-        'Wow, really? 😮',
-        '👍',
-      ];
-      const randomReply = replies[Math.floor(Math.random() * replies.length)];
-      const replyMsg: Message = {
-        id: `m${Date.now() + 1}`,
-        senderId: activeConversation?.user.id || '',
-        text: randomReply,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        seen: false,
+    try {
+      const res = await dbSendMessage({
+        conversationId: activeChat,
+        senderId: currentUserId,
+        text: newMsg.text,
         type: 'text',
-      };
-      setConversations(prev => prev.map(c =>
-        c.id === activeChat
-          ? { ...c, messages: [...c.messages, replyMsg], lastMessage: replyMsg.text, lastMessageTime: 'now' }
-          : c
-      ));
-    }, 2000);
+      });
+
+      if (res.conversationId && res.conversationId !== activeChat) {
+        setActiveChat(res.conversationId);
+        setConversations(prev => prev.map(c => c.id === activeChat ? { ...c, id: res.conversationId } : c));
+      }
+    } catch (err) {
+      console.error('Send message error:', err);
+    }
   };
+
 
   const sendHeart = () => {
     if (!activeChat) return;
@@ -879,7 +901,7 @@ function MessagesContent() {
             <span className="msg-info-status">{user.online ? 'Active now' : `Last seen ${user.lastSeen || 'recently'}`}</span>
           </div>
           <div className="msg-info-actions">
-            <Link href="/profile" className="msg-info-action-btn" style={{ textDecoration: 'none' }}>
+            <Link href={`/profile/${user.id}`} className="msg-info-action-btn" style={{ textDecoration: 'none' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
               <span>Profile</span>
             </Link>

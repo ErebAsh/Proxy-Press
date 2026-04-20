@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, use } from 'react';
+import { useState, use, useEffect } from 'react';
 import Link from 'next/link';
-import { getPostBySlug, getRelatedPosts, posts } from '@/lib/data';
+import { getPostBySlug as getMockPostBySlug, getRelatedPosts as getMockRelatedPosts, posts as mockPosts } from '@/lib/data';
 import PostCard from '@/app/components/Feed/PostCard';
+import { getPostBySlug, getPostDetail, togglePostLike, togglePostSave, addPostComment, toggleCommentLike as toggleCommentLikeAction } from '@/lib/actions';
 
 const categoryColors: Record<string, string> = {
   Events: '#8B5CF6', Notices: '#F59E0B', Sports: '#10B981',
@@ -12,65 +13,177 @@ const categoryColors: Record<string, string> = {
 
 export default function ArticleDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params);
-  const post = getPostBySlug(resolvedParams.slug) ?? posts[0];
-  const related = getRelatedPosts(post, 3);
-  const catColor = categoryColors[post.category] ?? 'var(--primary)';
+  const [post, setPost] = useState<any>(null);
+  const [related, setRelated] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
+  const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [liked, setLiked] = useState(post.isLiked ?? false);
-  const [likeCount, setLikeCount] = useState(post.likes);
+  const [likeCount, setLikeCount] = useState(0);
   const [toast, setToast] = useState('');
   const [commentText, setCommentText] = useState('');
   const [activeReplyId, setActiveReplyId] = useState<number | null>(null);
   const [replyText, setReplyText] = useState('');
-  const [comments, setComments] = useState<{
-    id: number, author: string, text: string, time: string, likes: number, isLiked: boolean, parentId?: number
-  }[]>([
-    { id: 1, author: 'Student #142', text: 'Great coverage! The campus atmosphere is really captured here.', time: '2h ago', likes: 12, isLiked: false },
-    { id: 2, author: 'Faculty Member', text: 'Excellent details on the schedule changes. Very helpful.', time: '5h ago', likes: 24, isLiked: true }
-  ]);
+  const [comments, setComments] = useState<any[]>([]);
 
-  const handlePostComment = () => {
-    if (!commentText.trim()) return;
-    const newComment = {
-      id: Date.now(),
-      author: 'Alex Johnson',
-      text: commentText,
-      time: 'Just now',
-      likes: 0,
-      isLiked: false
-    };
-    setComments([newComment, ...comments]);
-    setCommentText('');
-    setToast('Comment posted!');
-    setTimeout(() => setToast(''), 3000);
-  };
+  useEffect(() => {
+    async function loadPost() {
+      try {
+        const data = await getPostDetail(resolvedParams.slug);
+        if (data && data.post) {
+          // Adapt DB post to UI format
+          const adaptedPost = {
+            ...data.post,
+            timeAgo: data.post.publishedAt ? formatTimeAgo(data.post.publishedAt) : 'Recently',
+            author: {
+              ...data.post.author,
+              posts: data.post.author.postsCount,
+              saved: data.post.author.savedCount,
+            },
+            isLiked: Array.isArray(data.post.likesList) ? data.post.likesList.some((l: any) => l.userId === 'u0') : false,
+            isSaved: Array.isArray(data.post.savedList) ? data.post.savedList.some((s: any) => s.userId === 'u0') : false,
+          };
+          setPost(adaptedPost);
+          
+          if (data.related) {
+            setRelated(data.related.map((rp: any) => ({
+              ...rp,
+              timeAgo: rp.publishedAt ? formatTimeAgo(rp.publishedAt) : 'Recently'
+            })));
+          }
 
-  const toggleCommentLike = (id: number) => {
-    setComments(comments.map(c => {
-      if (c.id === id) {
-        return { ...c, isLiked: !c.isLiked, likes: c.isLiked ? c.likes - 1 : c.likes + 1 };
+          if (data.post.commentsList) {
+            const flatComments: any[] = [];
+            data.post.commentsList.forEach((c: any) => {
+              flatComments.push({
+                id: c.id,
+                author: c.user?.name || 'User',
+                text: c.text,
+                time: formatTimeAgo(c.createdAt),
+                likes: c.likes?.length || 0,
+                isLiked: c.likes?.some((l: any) => l.userId === 'u0'),
+              });
+              
+              if (c.replies) {
+                c.replies.forEach((r: any) => {
+                  flatComments.push({
+                    id: r.id,
+                    author: r.user?.name || 'User',
+                    text: r.text,
+                    time: formatTimeAgo(r.createdAt),
+                    likes: r.likes?.length || 0,
+                    isLiked: r.likes?.some((l: any) => l.userId === 'u0'),
+                    parentId: c.id
+                  });
+                });
+              }
+            });
+            setComments(flatComments);
+          }
+        } else {
+          // Fallback to mock if absolutely necessary, but try to find in mock list
+          const mock = getMockPostBySlug(resolvedParams.slug);
+          if (mock) {
+            setPost(mock);
+            setRelated(getMockRelatedPosts(mock, 3));
+          } else {
+            setPost(mockPosts[0]);
+            setRelated(getMockRelatedPosts(mockPosts[0], 3));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load article:', err);
+      } finally {
+        setIsLoading(false);
       }
-      return c;
-    }));
+    }
+    loadPost();
+  }, [resolvedParams.slug]);
+
+  useEffect(() => {
+    if (post) {
+      setLiked(post.isLiked ?? false);
+      setSaved(post.isSaved ?? false);
+      setLikeCount(post.likes ?? 0);
+    }
+  }, [post]);
+
+  if (isLoading) {
+    return (
+      <div className="feed-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+        <div className="spinner" style={{ width: '40px', height: '40px', marginBottom: '16px' }} />
+        <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Loading article...</p>
+      </div>
+    );
+  }
+
+  if (!post) return null;
+
+  const catColor = categoryColors[post.category] ?? 'var(--primary)';
+
+  const handlePostComment = async () => {
+    if (!commentText.trim()) return;
+    
+    const result = await addPostComment({
+      postId: post.id,
+      userId: 'u0',
+      text: commentText,
+    });
+
+    if (result.success) {
+      const newComment = {
+        id: result.id,
+        author: 'Alex Johnson',
+        text: commentText,
+        time: 'Just now',
+        likes: 0,
+        isLiked: false
+      };
+      setComments([newComment, ...comments]);
+      setCommentText('');
+      setToast('Comment posted!');
+      setTimeout(() => setToast(''), 3000);
+    }
   };
 
-  const handleReply = (parentId: number) => {
+  const toggleCommentLike = async (id: string) => {
+    const result = await toggleCommentLikeAction(id, 'u0');
+    if (result.success) {
+      setComments(comments.map(c => {
+        if (c.id === id) {
+          return { ...c, isLiked: !c.isLiked, likes: c.isLiked ? c.likes - 1 : c.likes + 1 };
+        }
+        return c;
+      }));
+    }
+  };
+
+  const handleReply = async (parentId: string) => {
     if (!replyText.trim()) return;
-    const newReply = {
-      id: Date.now(),
-      author: 'Alex Johnson',
+    
+    const result = await addPostComment({
+      postId: post.id,
+      userId: 'u0',
       text: replyText,
-      time: 'Just now',
-      likes: 0,
-      isLiked: false,
-      parentId: parentId
-    };
-    setComments([...comments, newReply]);
-    setReplyText('');
-    setActiveReplyId(null);
-    setToast('Reply posted!');
-    setTimeout(() => setToast(''), 3000);
+      parentId: parentId,
+    });
+
+    if (result.success) {
+      const newReply = {
+        id: result.id,
+        author: 'Alex Johnson',
+        text: replyText,
+        time: 'Just now',
+        likes: 0,
+        isLiked: false,
+        parentId: parentId
+      };
+      setComments([...comments, newReply]);
+      setReplyText('');
+      setActiveReplyId(null);
+      setToast('Reply posted!');
+      setTimeout(() => setToast(''), 3000);
+    }
   };
 
   const handleShare = async () => {
@@ -93,6 +206,29 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ slug: 
       }
     } catch (err) {
       console.error('Error sharing:', err);
+    }
+    setShowMenu(false);
+  };
+
+  const handleToggleLike = async () => {
+    const result = await togglePostLike(post.id, 'u0');
+    if (result.success) {
+      setLiked(!liked);
+      setLikeCount(prev => liked ? prev - 1 : prev + 1);
+    }
+  };
+
+  const handleSave = async () => {
+    // Optimistic UI
+    const newSaved = !saved;
+    setSaved(newSaved);
+
+    try {
+      await togglePostSave(post.id, 'u0');
+    } catch (err) {
+      console.error('Failed to toggle save:', err);
+      // Rollback on error
+      setSaved(!newSaved);
     }
     setShowMenu(false);
   };
@@ -167,7 +303,7 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ slug: 
                 padding: '8px', zIndex: 101,
                 animation: 'fade-in 0.2s ease-out'
               }}>
-                <Link href="/profile" style={{
+                <Link href={`/profile/${post.authorId}`} style={{
                   display: 'flex', alignItems: 'center', gap: '12px',
                   padding: '12px', borderRadius: '12px', color: 'var(--text-primary)',
                   fontSize: '14px', textDecoration: 'none', transition: 'all 0.2s'
@@ -185,10 +321,7 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ slug: 
                   <span style={{ color: catColor, fontSize: '18px' }}>📤</span> Share News
                 </div>
                 <div 
-                  onClick={() => {
-                    setSaved(!saved);
-                    setShowMenu(false);
-                  }}
+                  onClick={handleSave}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '12px',
                     padding: '12px', borderRadius: '12px', 
@@ -252,7 +385,7 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ slug: 
       {/* Like Row */}
       <div style={{ display: 'flex', justifyContent: 'center', margin: '32px 0 16px' }}>
         <button
-          onClick={() => { setLiked(!liked); setLikeCount(prev => liked ? prev - 1 : prev + 1); }}
+          onClick={handleToggleLike}
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
             padding: '8px 18px', borderRadius: '100px',
@@ -497,4 +630,17 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ slug: 
       )}
     </div>
   );
+}
+
+function formatTimeAgo(dateString: string) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (isNaN(date.getTime())) return 'Recently';
+  if (diffInSeconds < 60) return 'just now';
+  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+  return date.toLocaleDateString();
 }

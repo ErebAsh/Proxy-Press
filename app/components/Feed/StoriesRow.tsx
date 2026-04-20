@@ -2,16 +2,7 @@
 
 import { categories } from '@/lib/data';
 
-const stories = [
-  { emoji: '🎉', label: 'Events', color: '#8B5CF6' },
-  { emoji: '📢', label: 'Notices', color: '#F59E0B' },
-  { emoji: '⚽', label: 'Sports', color: '#10B981' },
-  { emoji: '📚', label: 'Academic', color: '#2563EB' },
-  { emoji: '🎭', label: 'Clubs', color: '#EC4899' },
-  { emoji: '📝', label: 'Exams', color: '#EF4444' },
-  { emoji: '🏆', label: 'Achievements', color: '#F97316' },
-  { emoji: '🧪', label: 'Research', color: '#06B6D4' },
-];
+const stories: any[] = [];
 
 export default function StoriesRow() {
   return (

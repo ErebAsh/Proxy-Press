@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { getUnreadMessageCountAction } from '@/lib/actions';
 import './MobileBottomNav.css';
 
 const navItems = [
@@ -39,7 +41,6 @@ const navItems = [
   {
     href: '/messages',
     label: 'Messages',
-    badge: 2,
     icon: (active: boolean) => (
       <svg width="24" height="24" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
@@ -64,12 +65,28 @@ const navItems = [
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    async function loadCount() {
+      try {
+        const count = await getUnreadMessageCountAction();
+        setUnreadCount(count);
+      } catch (e) {
+        console.error('Failed to load unread count', e);
+      }
+    }
+    loadCount();
+    const interval = setInterval(loadCount, 15000); // Poll every 15s
+    return () => clearInterval(interval);
+  }, [pathname]);
 
   return (
     <nav className="mobile-bottom-nav">
       <div className="mobile-nav-container">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
+          const badge = item.href === '/messages' ? unreadCount : 0;
           
           if (item.isCreate) {
             return (
@@ -92,8 +109,8 @@ export default function MobileBottomNav() {
             >
               <div className="mobile-nav-icon-wrapper">
                 {item.icon(isActive)}
-                {item.badge && !isActive && (
-                  <span className="mobile-nav-badge">{item.badge}</span>
+                {badge > 0 && !isActive && (
+                  <span className="mobile-nav-badge">{badge}</span>
                 )}
               </div>
               <span className="mobile-nav-label">{item.label}</span>

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import type { Post } from '@/lib/data';
+import { togglePostLike, togglePostSave } from '@/lib/actions';
 
 const categoryColors: Record<string, string> = {
   Events: '#8B5CF6',
@@ -28,16 +29,54 @@ interface PostCardProps {
 }
 
 export default function PostCard({ post, index = 0 }: PostCardProps) {
-  const [liked, setLiked] = useState(post.isLiked ?? false);
-  const [saved, setSaved] = useState(post.isSaved ?? false);
-  const [likeCount, setLikeCount] = useState(post.likes);
+  const [liked, setLiked] = useState<boolean>(post.isLiked ?? false);
+  const [saved, setSaved] = useState<boolean>(post.isSaved ?? false);
+  const [likeCount, setLikeCount] = useState(post.likes ?? 0);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const handleLike = () => {
-    setLiked(prev => {
-      setLikeCount(c => prev ? c - 1 : c + 1);
-      return !prev;
-    });
+  // Sync with post prop changes (e.g. after refresh/load)
+  useEffect(() => {
+    setLiked(!!post.isLiked);
+    setSaved(!!post.isSaved);
+    setLikeCount(post.likes ?? 0);
+  }, [post.isLiked, post.isSaved, post.likes]);
+
+  const handleLike = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Optimistic UI
+    const newLiked = !liked;
+    setLiked(newLiked);
+    setLikeCount(prev => newLiked ? prev + 1 : prev - 1);
+
+    // Persistence
+    try {
+      await togglePostLike(post.id, 'u0');
+    } catch (err) {
+      console.error('Failed to toggle like:', err);
+      // Rollback on error
+      setLiked(!newLiked);
+      setLikeCount(prev => !newLiked ? prev + 1 : prev - 1);
+    }
+  };
+
+  const handleSave = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Optimistic UI
+    const newSaved = !saved;
+    setSaved(newSaved);
+
+    // Persistence
+    try {
+      await togglePostSave(post.id, 'u0');
+    } catch (err) {
+      console.error('Failed to toggle save:', err);
+      // Rollback on error
+      setSaved(!newSaved);
+    }
   };
 
   const catColor = categoryColors[post.category] ?? 'var(--primary)';
@@ -84,20 +123,29 @@ export default function PostCard({ post, index = 0 }: PostCardProps) {
           </button>
           {menuOpen && (
             <div className="menu-dropdown" id={`post-dropdown-${post.id}`}>
-              {[
-                { icon: '🔗', label: 'Copy link' },
-                { icon: '📤', label: 'Share post' },
-                { icon: '🔖', label: 'Save post' },
-                { icon: '🚩', label: 'Report', danger: true },
-              ].map(item => (
-                <div
-                  key={item.label}
-                  className={`menu-item ${item.danger ? 'danger' : ''}`}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <span>{item.icon}</span> {item.label}
-                </div>
-              ))}
+              <div
+                className="menu-item"
+                onClick={() => {
+                  navigator.clipboard?.writeText(window.location.origin + `/article/${post.slug}`);
+                  setMenuOpen(false);
+                }}
+              >
+                <span>🔗</span> Copy link
+              </div>
+              <Link 
+                href={`/profile/${post.authorId || post.author.id}`}
+                className="menu-item"
+                style={{ textDecoration: 'none' }}
+                onClick={() => setMenuOpen(false)}
+              >
+                <span>👤</span> View Profile
+              </Link>
+              <div
+                className="menu-item danger"
+                onClick={() => setMenuOpen(false)}
+              >
+                <span>🚩</span> Report
+              </div>
             </div>
           )}
         </div>
@@ -227,7 +275,7 @@ export default function PostCard({ post, index = 0 }: PostCardProps) {
         <button
           id={`save-btn-${post.id}`}
           className={`action-btn ${saved ? 'saved' : ''}`}
-          onClick={() => setSaved(s => !s)}
+          onClick={handleSave}
           aria-label={saved ? 'Unsave' : 'Save'}
         >
           <svg width="18" height="18" viewBox="0 0 24 24"

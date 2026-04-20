@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { uploadMedia, createPost } from '@/lib/actions';
 import { categories } from '@/lib/data';
 import type { Category } from '@/lib/data';
 import './create.css';
@@ -62,7 +63,7 @@ export default function CreatePostPage() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: mode },
+        video: { facingMode: mode, width: { ideal: 1080 }, height: { ideal: 1920 } },
         audio: false 
       });
       setCameraStream(stream);
@@ -108,13 +109,52 @@ export default function CreatePostPage() {
     }
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!title || !description || !category) return;
     setPublishing(true);
-    setTimeout(() => {
-      setPublishing(false);
+    
+    try {
+      let imageUrl = '';
+      
+      // 1. Upload image if exists
+      if (imageFile && fileInputRef.current?.files?.[0]) {
+        const formData = new FormData();
+        formData.append('file', fileInputRef.current.files[0]);
+        formData.append('category', 'images');
+        
+        const uploadRes = await uploadMedia(formData);
+        imageUrl = uploadRes.url;
+      } else if (imageFile?.startsWith('data:')) {
+        // Handle camera captured data URL
+        const res = await fetch(imageFile);
+        const blob = await res.blob();
+        const file = new File([blob], "camera-capture.jpg", { type: "image/jpeg" });
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('category', 'images');
+        
+        const uploadRes = await uploadMedia(formData);
+        imageUrl = uploadRes.url;
+      }
+
+      // 2. Create post in DB
+      await createPost({
+        title,
+        description,
+        content: description, // Simplified for now
+        category,
+        imageUrl: imageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80',
+        authorId: 'u0', // Assuming current user is u0
+      });
+
       setPublished(true);
-    }, 1600);
+    } catch (err) {
+      console.error('Publish error:', err);
+      alert('Failed to publish post. Please try again.');
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const isValid = title.trim() && description.trim() && category;

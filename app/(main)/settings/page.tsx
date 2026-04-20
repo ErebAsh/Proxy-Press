@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { logout } from '@/lib/actions';
 import './settings.css';
 
 export default function SettingsPage() {
@@ -17,8 +18,10 @@ export default function SettingsPage() {
     }
   }, []);
 
-  const handleLogout = () => {
-    router.push('/');
+  const handleLogout = async () => {
+    await logout();
+    router.push('/login');
+    router.refresh();
   };
 
   const settingsItems = [

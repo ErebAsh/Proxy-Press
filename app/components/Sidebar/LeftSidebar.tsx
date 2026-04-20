@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { getCurrentUser, getUnreadNotificationsCountAction } from '@/lib/actions';
 import ThemeToggle from '../ui/ThemeToggle';
 
 const navItems = [
@@ -40,7 +42,6 @@ const navItems = [
   {
     href: '/notifications',
     label: 'Notifications',
-    badge: 4,
     icon: (active: boolean) => (
       <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -62,6 +63,26 @@ const navItems = [
 
 export default function LeftSidebar() {
   const pathname = usePathname();
+  const [user, setUser] = useState<any>(null);
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [u, count] = await Promise.all([
+          getCurrentUser(),
+          getUnreadNotificationsCountAction()
+        ]);
+        setUser(u);
+        setUnreadNotifs(count);
+      } catch (e) {
+        console.error('Failed to load sidebar data', e);
+      }
+    }
+    load();
+    const interval = setInterval(load, 30000); // Poll every 30s
+    return () => clearInterval(interval);
+  }, [pathname]);
 
   return (
     <aside className="left-sidebar" id="left-sidebar">
@@ -91,10 +112,11 @@ export default function LeftSidebar() {
         <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {navItems.map((item) => {
             const isActive = pathname === item.href;
+            const badge = item.href === '/notifications' ? unreadNotifs : 0;
             return (
               <li key={item.href}>
                 <Link
-                  href={item.href}
+                  href={user && item.href === '/profile' ? `/profile/${user.id}` : item.href}
                   className={`nav-item ${isActive ? 'active' : ''} ${item.isCreate ? 'create-btn-nav' : ''}`}
                   id={`nav-${item.label.toLowerCase().replace(' ', '-')}`}
                   style={item.isCreate ? {
@@ -108,8 +130,8 @@ export default function LeftSidebar() {
                     {item.icon(isActive)}
                   </span>
                   <span>{item.label}</span>
-                  {item.badge && !isActive && (
-                    <span className="nav-badge">{item.badge}</span>
+                  {badge > 0 && !isActive && (
+                    <span className="nav-badge">{badge}</span>
                   )}
                 </Link>
               </li>
@@ -140,32 +162,39 @@ export default function LeftSidebar() {
         </div>
 
         {/* Current user */}
-        <Link href="/profile" style={{ textDecoration: 'none' }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px',
-            borderRadius: 'var(--radius-md)', transition: 'background var(--transition-fast)',
-            cursor: 'pointer',
-          }}
-            className="profile-nav-item"
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.background = 'transparent';
-            }}
-          >
+        {user ? (
+          <Link href={`/profile/${user.id}`} style={{ textDecoration: 'none' }}>
             <div style={{
-              width: '36px', height: '36px', borderRadius: '50%',
-              background: 'linear-gradient(135deg, var(--primary), #8B5CF6)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '16px', flexShrink: 0,
-            }}>👤</div>
-            <div style={{ overflow: 'hidden' }}>
-              <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Alex Johnson</div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>@alexj</div>
+              display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px',
+              borderRadius: 'var(--radius-md)', transition: 'background var(--transition-fast)',
+              cursor: 'pointer',
+            }}
+              className="profile-nav-item"
+            >
+              <div style={{
+                width: '36px', height: '36px', borderRadius: '50%',
+                background: 'linear-gradient(135deg, var(--primary), #8B5CF6)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '16px', flexShrink: 0,
+                overflow: 'hidden',
+              }}>
+                {user.profilePicture ? (
+                  <img src={user.profilePicture} alt={user.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (user.avatar || '👤')}
+              </div>
+              <div style={{ overflow: 'hidden' }}>
+                <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {user.name}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>@{user.username || user.id}</div>
+              </div>
             </div>
+          </Link>
+        ) : (
+          <div style={{ padding: '10px 14px', textAlign: 'center' }}>
+            <div className="spinner" style={{ width: '20px', height: '20px', margin: '0 auto' }} />
           </div>
-        </Link>
+        )}
       </div>
     </aside>
   );

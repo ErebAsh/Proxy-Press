@@ -17,8 +17,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 0 16px; /* Increased top padding */
-  margin-bottom: 4px;
+  padding: 16px 0 8px;
+  margin-bottom: 8px;
 }
 
 .ref-back-btn, .ref-more-btn {
@@ -43,7 +43,7 @@
 .ref-avatar-section {
   display: flex;
   justify-content: center;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .ref-avatar-wrapper {
@@ -81,18 +81,84 @@
   box-shadow: 0 2px 8px rgba(0, 180, 255, 0.4);
 }
 
+/* Tabs Switcher */
+.ref-tabs-container {
+  position: relative;
+  display: flex;
+  background: var(--surface-2);
+  padding: 4px;
+  border-radius: 14px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border);
+}
+
+.ref-tab-indicator {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  background: #00B4FF;
+  border-radius: 11px;
+  transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  z-index: 1;
+}
+
+.ref-tab-indicator.personal {
+  transform: translateX(100%);
+}
+
+.ref-tab-btn {
+  flex: 1;
+  position: relative;
+  z-index: 2;
+  background: none;
+  border: none;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  outline: none; /* Remove browser default outline */
+}
+
+.ref-tab-btn:focus-visible {
+  outline: none;
+}
+
+.ref-tab-btn.active {
+  color: white;
+}
+
 /* Form Styles */
 .ref-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+}
+
+.animate-fade-in-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Reduced gap for compact look */
+  animation: fadeInQuick 0.3s ease-out;
+}
+
+@keyframes fadeInQuick {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .ref-section-label {
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--text-primary);
-  margin: 8px 0 4px;
+  margin: 20px 0 8px; /* Reduced margin */
+  letter-spacing: -0.01em;
+}
+
+.ref-section-label:first-of-type {
+  margin-top: 4px;
 }
 
 .ref-input-container {
@@ -105,9 +171,9 @@
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 16px 44px 16px 16px;
+  padding: 12px 16px;
   color: var(--text-primary);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   outline: none;
   transition: all 0.2s;
@@ -133,24 +199,26 @@
 
 .ref-input-row {
   display: flex;
-  gap: 12px;
+  gap: 8px;
 }
 
 .ref-input-container.half {
   flex: 1;
+  min-width: 0;
 }
 
 .ref-textarea {
-  resize: none;
-  min-height: 80px;
-  padding-right: 16px;
+  resize: vertical;
+  min-height: 100px;
+  padding: 14px 16px;
+  line-height: 1.6;
 }
 
 /* Save Button */
 .ref-save-btn {
-  margin-top: 16px;
+  margin-top: 32px;
   width: 100%;
-  padding: 18px;
+  padding: 14px;
   border-radius: 14px;
   background: #00B4FF;
   color: white;
@@ -224,4 +292,13 @@
 .dark .ref-input, .dark .ref-textarea {
   background: #2D3B4F;
   border-color: #334155;
+}
+
+/* Add right padding only for containers that actually have an icon on the right */
+.ref-input-container:has(.ref-input-icon:not([style*="left: 16px"])) .ref-input {
+  padding-right: 42px;
+}
+
+.ref-input-container.half .ref-input {
+  padding-right: 12px;
 }
