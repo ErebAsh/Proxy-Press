@@ -449,23 +449,42 @@ function MessagesContent() {
             return prev.map(c => {
               // If this message belongs to this conversation
               if (String(c.id) === String(conversationId)) {
-                // Prevent duplicate messages (e.g. if we sent it and already added it optimistically)
-                const exists = c.messages.some(m => m.id === newMsg.id || m.id === `m${new Date(newMsg.created_at).getTime()}`);
+                // Prevent duplicate messages by checking if a temporary message with the same text exists
+                const tempMsgIndex = c.messages.findIndex(m => 
+                  typeof m.id === 'string' && m.id.startsWith('m') && 
+                  m.text === newMsg.text && 
+                  m.senderId === senderId
+                );
                 
-                let updatedMessages = c.messages;
-                if (!exists) {
-                  updatedMessages = [...c.messages, {
+                let updatedMessages;
+                if (tempMsgIndex !== -1) {
+                  // Replace temp message with the real one from server
+                  updatedMessages = [...c.messages];
+                  updatedMessages[tempMsgIndex] = {
+                    ...updatedMessages[tempMsgIndex],
                     id: newMsg.id,
-                    senderId: senderId,
-                    text: newMsg.text,
-                    timestamp: formatMessageTime(newMsg.created_at || newMsg.createdAt || new Date().toISOString()),
-                    seen: false,
-                    type: newMsg.type || 'text',
-                    attachment: newMsg.attachment,
-                    status: 'sent'
-                  }];
+                    timestamp: formatMessageTime(newMsg.created_at || new Date().toISOString())
+                  };
+                } else {
+                  const exists = c.messages.some(m => m.id === newMsg.id);
+                  if (!exists) {
+                    updatedMessages = [...c.messages, {
+                      id: newMsg.id,
+                      senderId: senderId,
+                      text: newMsg.text,
+                      timestamp: formatMessageTime(newMsg.created_at || new Date().toISOString()),
+                      seen: false,
+                      type: newMsg.type || 'text',
+                      attachment: newMsg.attachment,
+                      status: 'sent'
+                    }];
+                  } else {
+                    updatedMessages = c.messages;
+                  }
+                }
 
-                  // Save to cache in background
+                // Save to cache in background
+                if (updatedMessages !== c.messages) {
                   setTimeout(() => {
                     OfflineManager.saveData(`msgs_${c.id}`, updatedMessages);
                   }, 0);

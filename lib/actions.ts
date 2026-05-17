@@ -370,6 +370,49 @@ export async function sendMessage(data: {
   // Invalidate Redis caches for instant message delivery
   await invalidateConversationCache(finalConversationId);
 
+  // Send Push Notification to recipient
+  try {
+    const participants = await db.select()
+      .from(schema.conversationParticipants)
+      .where(eq(schema.conversationParticipants.conversationId, finalConversationId));
+    
+    const recipientId = participants.find(p => p.userId !== data.senderId)?.userId;
+
+    if (recipientId) {
+      const recipient = await db.query.users.findFirst({
+        where: eq(schema.users.id, recipientId)
+      });
+
+      if (recipient?.fcmToken) {
+        const { admin } = await import('./firebase-admin');
+        const sender = await db.query.users.findFirst({
+          where: eq(schema.users.id, data.senderId)
+        });
+        
+        const senderName = sender?.name || 'Someone';
+
+        let bodyText = data.text;
+        if (data.type === 'image') bodyText = '📷 Sent an image';
+        else if (data.type === 'video') bodyText = '🎥 Sent a video';
+        else if (data.type === 'voice') bodyText = '🎤 Sent a voice message';
+        else if (data.type === 'heart') bodyText = '❤️';
+
+        await admin.messaging().send({
+          token: recipient.fcmToken,
+          data: {
+            title: senderName,
+            body: bodyText,
+            avatarUrl: sender?.profilePicture || '',
+            conversationId: finalConversationId,
+            type: 'message'
+          }
+        });
+      }
+    }
+  } catch (pushErr) {
+    console.error('Failed to send push notification:', pushErr);
+  }
+
   revalidatePath('/messages');
   return { success: true, id: messageId, conversationId: finalConversationId };
 }
