@@ -746,6 +746,7 @@ function MessagesContent() {
     });
 
     chatChannel.bind('client-new-message', (data: any) => {
+      if (data.senderId === currentUserId) return; // Ignore messages sent by me
       setConversations(prev => prev.map(c => {
         if (c.id === activeChat) {
           const exists = c.messages.some(m => m.id === data.id);
@@ -767,7 +768,7 @@ function MessagesContent() {
       chatChannel.unbind_all();
       pusherRef.current.unsubscribe(`private-chat-${activeChat}`);
     };
-  }, [activeChat]);
+  }, [activeChat, currentUserId]);
 
   const lastTypingSent = useRef<number>(0);
 
@@ -1965,9 +1966,9 @@ function MessagesContent() {
 
     const newMsg: Message = {
       id: tempId,
-      senderId: CURRENT_USER_ID,
+      senderId: currentUserId, // Use real user ID instead of 'me'
       text: msgText,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date().toISOString(), // Use ISO string for reliable parsing
       seen: false,
       type: 'text',
       replyTo: replyingTo?.id,
