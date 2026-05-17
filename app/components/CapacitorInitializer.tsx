@@ -62,6 +62,49 @@ export default function CapacitorInitializer() {
     
     hideNative();
     
+    // Push Notifications Initialization
+    const initPushNotifications = async () => {
+      try {
+        const { PushNotifications } = await import('@capacitor/push-notifications');
+        
+        let permStatus = await PushNotifications.checkPermissions();
+        
+        if (permStatus.receive === 'prompt') {
+          permStatus = await PushNotifications.requestPermissions();
+        }
+        
+        if (permStatus.receive !== 'granted') {
+          console.log('[Push] Permission not granted');
+          return;
+        }
+        
+        await PushNotifications.register();
+        
+        PushNotifications.addListener('registration', (token) => {
+          console.log('[Push] Token:', token.value);
+          // Save to local storage so other components can read it and save to DB
+          localStorage.setItem('fcm_token', token.value);
+        });
+        
+        PushNotifications.addListener('registrationError', (error) => {
+          console.error('[Push] Error:', error);
+        });
+        
+        PushNotifications.addListener('pushNotificationReceived', (notification) => {
+          console.log('[Push] Received:', notification);
+        });
+        
+        PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+          console.log('[Push] Action performed:', notification);
+        });
+        
+      } catch (e) {
+        console.log('[Push] Plugin not available or failed to init');
+      }
+    };
+    
+    initPushNotifications();
+    
     // 3. Listen for theme changes dynamically
     const observer = new MutationObserver(() => {
       const isDark = document.documentElement.classList.contains('dark');

@@ -394,6 +394,33 @@ function MessagesContent() {
     loadInitialData();
   }, []);
 
+  // Save Push Notification Token to Supabase
+  useEffect(() => {
+    if (!currentUserId || currentUserId === 'me') return;
+
+    const savePushToken = async () => {
+      const token = localStorage.getItem('fcm_token');
+      if (token) {
+        try {
+          const { error } = await supabase
+            .from('users') 
+            .update({ push_token: token })
+            .eq('id', currentUserId);
+            
+          if (error) {
+            console.error('[Push] Failed to save token to DB:', error);
+          } else {
+            console.log('[Push] Token saved to database successfully');
+          }
+        } catch (e) {
+          console.error('[Push] Error saving token:', e);
+        }
+      }
+    };
+
+    savePushToken();
+  }, [currentUserId]);
+
   // Real-time updates via Supabase Realtime (Replaces Polling)
   useEffect(() => {
     if (!currentUserId || currentUserId === 'me') return;

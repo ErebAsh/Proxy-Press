@@ -10,6 +10,7 @@ interface NotificationSettings {
   notifyComments: boolean;
   notifyMentions: boolean;
   notifyNewPosts: boolean;
+  notifyMessages: boolean;
 }
 
 export default function NotificationSettingsPage() {
@@ -25,6 +26,7 @@ export default function NotificationSettingsPage() {
       notifyComments: true,
       notifyMentions: true,
       notifyNewPosts: false,
+      notifyMessages: true,
     } as NotificationSettings;
   });
 
@@ -55,6 +57,7 @@ export default function NotificationSettingsPage() {
           notifyComments: user.notifyComments ?? true,
           notifyMentions: user.notifyMentions ?? true,
           notifyNewPosts: user.notifyNewPosts ?? false,
+          notifyMessages: user.notifyMessages ?? true,
         };
         setSettings(newSettings);
         if (typeof window !== 'undefined') {
@@ -139,6 +142,12 @@ export default function NotificationSettingsPage() {
               sub="From accounts you follow" 
               active={settings.notifyNewPosts} 
               onToggle={() => handleToggleRequest('notifyNewPosts', 'New Posts')} 
+            />
+            <ToggleItem 
+              label="Messages" 
+              sub="When someone sends you a message" 
+              active={settings.notifyMessages} 
+              onToggle={() => handleToggleRequest('notifyMessages', 'Messages')} 
             />
           </div>
         </div>
