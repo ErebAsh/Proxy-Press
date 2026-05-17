@@ -417,6 +417,7 @@ function MessagesContent() {
 
         // Handle NEW message (INSERT)
         if (payload.eventType === 'INSERT') {
+          if (senderId === currentUserId) return; // Ignore messages sent by me
           setConversations(prev => {
             return prev.map(c => {
               // If this message belongs to this conversation
@@ -430,7 +431,7 @@ function MessagesContent() {
                     id: newMsg.id,
                     senderId: senderId,
                     text: newMsg.text,
-                    timestamp: new Date(newMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    timestamp: formatMessageTime(newMsg.created_at || newMsg.createdAt || new Date().toISOString()),
                     seen: false,
                     type: newMsg.type || 'text',
                     attachment: newMsg.attachment,
@@ -2570,12 +2571,12 @@ function MessagesContent() {
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   </a>
                 )}
-                {selectedMessage.senderId === CURRENT_USER_ID && selectedMessage.type === 'text' && (
+                {(selectedMessage.senderId === 'me' || selectedMessage.senderId === currentUserId) && selectedMessage.type === 'text' && (
                   <button className="msg-header-action-btn" title="Edit" onClick={() => { handleEditMessage(selectedMessage); setSelectedMessage(null); }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   </button>
                 )}
-                {selectedMessage.senderId === CURRENT_USER_ID && (
+                {(selectedMessage.senderId === 'me' || selectedMessage.senderId === currentUserId) && (
                   <button className="msg-header-action-btn danger" title="Delete" onClick={() => { handleDeleteMessage(selectedMessage.id); setSelectedMessage(null); }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                   </button>
@@ -2669,7 +2670,7 @@ function MessagesContent() {
 
           {/* Message bubbles */}
           {messages.map((msg, i) => {
-            const isMine = msg.senderId === CURRENT_USER_ID;
+            const isMine = msg.senderId === 'me' || msg.senderId === currentUserId;
 
             const isLastInGroup = i === messages.length - 1 || messages[i + 1]?.senderId !== msg.senderId;
 
