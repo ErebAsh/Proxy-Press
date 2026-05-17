@@ -2670,7 +2670,7 @@ function MessagesContent() {
 
           {/* Message bubbles */}
           {messages.map((msg, i) => {
-            const isMine = msg.senderId === 'me' || msg.senderId === currentUserId;
+            const isMine = msg.senderId !== user.id;
 
             const isLastInGroup = i === messages.length - 1 || messages[i + 1]?.senderId !== msg.senderId;
 
@@ -2836,7 +2836,7 @@ function MessagesContent() {
                   {/* Timestamp + seen */}
                   {isLastInGroup && (
                     <div className={`msg-meta ${isMine ? 'mine' : 'theirs'}`}>
-                      <span className="msg-time">{msg.timestamp}</span>
+                      <span className="msg-time">{formatMessageTime(msg.timestamp)}</span>
                       {isMine && (
                         <div className={`msg-seen-status ${msg.seen ? 'seen' : ''}`}>
                           {msg.status === 'sending' ? (
