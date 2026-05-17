@@ -476,7 +476,7 @@ function MessagesContent() {
                       seen: false,
                       type: newMsg.type || 'text',
                       attachment: newMsg.attachment,
-                      status: 'sent'
+                      status: 'sent' as const
                     }];
                   } else {
                     updatedMessages = c.messages;
