@@ -26,6 +26,42 @@ export default function CapacitorInitializer() {
     
     initStatusBar();
     
+    // Hide native splash screen as soon as app is ready
+    const hideNative = async () => {
+      let attempts = 0;
+      const maxAttempts = 20;
+
+      const interval = setInterval(async () => {
+        try {
+          attempts++;
+          let success = false;
+
+          if ((window as any).AndroidNativeSplash) {
+            console.log('[Splash] Found AndroidNativeSplash, hiding...');
+            (window as any).AndroidNativeSplash.hide();
+            success = true;
+          } else if ((window as any).NativeSplash) {
+            (window as any).NativeSplash.hide();
+            success = true;
+          } else {
+            try {
+              const { SplashScreen } = await import('@capacitor/splash-screen');
+              await SplashScreen.hide();
+              success = true;
+            } catch (e) {}
+          }
+
+          if (success || attempts >= maxAttempts) {
+            clearInterval(interval);
+          }
+        } catch (e) {
+          if (attempts >= maxAttempts) clearInterval(interval);
+        }
+      }, 200);
+    };
+    
+    hideNative();
+    
     // 3. Listen for theme changes dynamically
     const observer = new MutationObserver(() => {
       const isDark = document.documentElement.classList.contains('dark');

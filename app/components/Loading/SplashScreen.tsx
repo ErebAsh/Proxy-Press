@@ -48,10 +48,9 @@ export default function SplashScreen() {
       }, 200);
     };
     
-    hideNative();
-
     // After 2 seconds, fade out the web splash
     if (isVisible) {
+      hideNative();
       localStorage.setItem('splash_shown', 'true');
       
       const timer = setTimeout(() => {
