@@ -729,6 +729,22 @@ function MessagesContent() {
 
     const chatChannel = pusherRef.current.subscribe(`private-chat-${activeChat}`);
 
+    chatChannel.bind('pusher:subscription_succeeded', () => {
+      chatChannel.trigger('client-message-read', { conversationId: activeChat });
+    });
+
+    chatChannel.bind('client-message-read', (data: { conversationId: string }) => {
+      setConversations(prev => prev.map(c => {
+        if (String(c.id) === String(data.conversationId)) {
+          return {
+            ...c,
+            messages: c.messages.map(m => (m.senderId === 'me' || m.senderId === currentUserId) ? { ...m, seen: true } : m)
+          };
+        }
+        return c;
+      }));
+    });
+
     chatChannel.bind('client-typing', (data: { userId: string }) => {
       // Update specific conversation isTyping state
       setConversations(prev => prev.map(c => 
@@ -748,6 +764,10 @@ function MessagesContent() {
 
     chatChannel.bind('client-new-message', (data: any) => {
       if (data.senderId === currentUserId) return; // Ignore messages sent by me
+      
+      // Trigger read event since we are actively viewing this chat
+      chatChannel.trigger('client-message-read', { conversationId: activeChat });
+      
       setConversations(prev => prev.map(c => {
         if (c.id === activeChat) {
           const exists = c.messages.some(m => m.id === data.id);
