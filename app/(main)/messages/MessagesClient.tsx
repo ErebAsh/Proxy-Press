@@ -1994,7 +1994,7 @@ function MessagesContent() {
       type: 'text',
       replyTo: replyingTo?.id,
       expiresAt: expiresAt,
-      status: 'sending',
+      status: 'sent',
     };
 
     // Optimistic UI update — message appears instantly

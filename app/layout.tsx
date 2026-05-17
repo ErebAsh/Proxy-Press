@@ -38,6 +38,7 @@ export const metadata: Metadata = {
 import { NotificationsProvider } from "@/lib/NotificationsContext";
 import { IdentityProvider } from "@/lib/IdentityContext";
 import PWAProvider from "@/lib/PWAProvider";
+import GlobalRealtimeListener from "@/app/components/GlobalRealtimeListener";
 import CapacitorInitializer from "@/app/components/CapacitorInitializer";
 
 export default function RootLayout({
@@ -117,6 +118,7 @@ export default function RootLayout({
         <PWAProvider>
           <IdentityProvider>
             <NotificationsProvider>
+              <GlobalRealtimeListener />
               {children}
             </NotificationsProvider>
           </IdentityProvider>
