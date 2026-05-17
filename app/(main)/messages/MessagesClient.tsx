@@ -411,12 +411,16 @@ function MessagesContent() {
         const newMsg = payload.new as any;
         if (!newMsg) return;
 
+        // Fallback for snake_case keys from Supabase Realtime
+        const conversationId = newMsg.conversationId || newMsg.conversation_id;
+        const senderId = newMsg.senderId || newMsg.sender_id;
+
         // Handle NEW message (INSERT)
         if (payload.eventType === 'INSERT') {
           setConversations(prev => {
             return prev.map(c => {
               // If this message belongs to this conversation
-              if (c.id === newMsg.conversationId) {
+              if (String(c.id) === String(conversationId)) {
                 // Prevent duplicate messages (e.g. if we sent it and already added it optimistically)
                 const exists = c.messages.some(m => m.id === newMsg.id || m.id === `m${new Date(newMsg.created_at).getTime()}`);
                 
@@ -424,7 +428,7 @@ function MessagesContent() {
                 if (!exists) {
                   updatedMessages = [...c.messages, {
                     id: newMsg.id,
-                    senderId: newMsg.senderId,
+                    senderId: senderId,
                     text: newMsg.text,
                     timestamp: new Date(newMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     seen: false,
@@ -457,7 +461,7 @@ function MessagesContent() {
         // Handle message update (e.g. seen status)
         if (payload.eventType === 'UPDATE') {
           setConversations(prev => prev.map(c => {
-            if (c.id === newMsg.conversationId) {
+            if (String(c.id) === String(conversationId)) {
               const updatedMessages = c.messages.map(m => m.id === newMsg.id ? { ...m, seen: newMsg.seen } : m);
               
               // Save to cache in background
