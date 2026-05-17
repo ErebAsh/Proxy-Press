@@ -745,14 +745,39 @@ function MessagesContent() {
       }, 3000);
     });
 
+    chatChannel.bind('client-new-message', (data: any) => {
+      setConversations(prev => prev.map(c => {
+        if (c.id === activeChat) {
+          const exists = c.messages.some(m => m.id === data.id);
+          if (!exists) {
+            return {
+              ...c,
+              messages: [...c.messages, data],
+              lastMessage: data.text,
+              lastMessageTime: 'Just now',
+              rawLastMessageTime: new Date().toISOString()
+            };
+          }
+        }
+        return c;
+      }));
+    });
+
     return () => {
       chatChannel.unbind_all();
       pusherRef.current.unsubscribe(`private-chat-${activeChat}`);
     };
   }, [activeChat]);
 
+  const lastTypingSent = useRef<number>(0);
+
   const sendTypingSignal = useCallback(() => {
     if (!activeChat || !pusherRef.current || String(activeChat).startsWith('new_')) return;
+    
+    const now = Date.now();
+    if (now - lastTypingSent.current < 1500) return; // Throttle to 1.5 seconds
+    lastTypingSent.current = now;
+
     try {
       const chatChannel = pusherRef.current.channel(`private-chat-${activeChat}`);
       if (chatChannel) {
@@ -1990,6 +2015,18 @@ function MessagesContent() {
 
     if (online) {
       try {
+        // Trigger Pusher event for instant delivery to the other user
+        if (pusherRef.current) {
+          const chatChannel = pusherRef.current.channel(`private-chat-${activeChat}`);
+          if (chatChannel) {
+            try {
+              chatChannel.trigger('client-new-message', { ...newMsg, status: 'sent' });
+            } catch (e) {
+              console.error('Failed to trigger Pusher event:', e);
+            }
+          }
+        }
+
         const res = await dbSendMessage(messagePayload);
 
         // Mark as sent in UI
