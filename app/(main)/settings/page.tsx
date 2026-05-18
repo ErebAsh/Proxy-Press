@@ -16,6 +16,9 @@ export default function SettingsPage() {
   );
 }
 
+let globalInMemoryUser: any = null;
+let globalInMemoryUserLoaded = false;
+
 function SettingsContent() {
   const router = useRouter();
   const { currentUserId } = useIdentity();
@@ -26,10 +29,18 @@ function SettingsContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [user, setUser] = useState<any>(() => {
+    if (globalInMemoryUserLoaded) {
+      return globalInMemoryUser;
+    }
     if (typeof window !== 'undefined') {
       const cached = localStorage.getItem('proxypress_user_data');
       if (cached) {
-        try { return JSON.parse(cached); } catch (e) { return null; }
+        try { 
+          const parsed = JSON.parse(cached);
+          globalInMemoryUser = parsed;
+          globalInMemoryUserLoaded = true;
+          return parsed; 
+        } catch (e) { return null; }
       }
     }
     return null;
@@ -38,9 +49,15 @@ function SettingsContent() {
   useEffect(() => {
     async function loadUser() {
       const u = await getCurrentUser();
-      setUser(u);
-      if (u && typeof window !== 'undefined') {
-        localStorage.setItem('proxypress_user_data', JSON.stringify(u));
+      
+      // Only update if data changed to avoid re-renders and make it feel cached
+      if (JSON.stringify(u) !== JSON.stringify(globalInMemoryUser)) {
+        setUser(u);
+        globalInMemoryUser = u;
+        globalInMemoryUserLoaded = true;
+        if (u && typeof window !== 'undefined') {
+          localStorage.setItem('proxypress_user_data', JSON.stringify(u));
+        }
       }
     }
     loadUser();
