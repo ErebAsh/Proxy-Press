@@ -13,7 +13,17 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="app-shell">
       <UserActivityRecorder />
-      <Suspense fallback={null}>
+      <Suspense fallback={
+        <header className="mobile-header">
+          <div className="mobile-header-container">
+            <div className="mobile-header-left">
+              <span className="mobile-logo-text">
+                Proxy<span className="mobile-logo-accent">Press</span>
+              </span>
+            </div>
+          </div>
+        </header>
+      }>
         <MobileHeader />
       </Suspense>
 

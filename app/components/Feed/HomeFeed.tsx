@@ -57,9 +57,16 @@ export default function HomeFeed() {
     async function loadData() {
       try {
         const user = await getCurrentUser();
-        const data = await getInitialData(user?.id);
         
-        if (data.posts) {
+        // Add a 5-second timeout to prevent getting stuck
+        const dataPromise = getInitialData(user?.id);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Network timeout')), 5000)
+        );
+        
+        const data = await Promise.race([dataPromise, timeoutPromise]) as any;
+        
+        if (data && data.posts) {
           freshDataLoaded.current = true;
           const adaptedPosts = data.posts.map((p: any) => ({
             ...p,
@@ -118,16 +125,21 @@ export default function HomeFeed() {
     isPulling.current = false;
 
     if (pullDistance > 60) {
+      setPullDistance(40); // Keep it down slightly to show the "Updating..." text
       await performRefresh();
     }
-    setPullDistance(0);
+    setPullDistance(0); // Reset to normal
   };
 
   const performRefresh = async () => {
     setIsRefreshing(true);
     try {
-      // 1. Sync from server to SQLite
-      await OfflineManager.syncHomeFeed();
+      // 1. Sync from server to SQLite with a 5-second timeout
+      const syncPromise = OfflineManager.syncHomeFeed();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Sync timeout')), 5000)
+      );
+      await Promise.race([syncPromise, timeoutPromise]);
       
       // 2. Load the fresh data from SQLite
       const freshData = await OfflineManager.getOfflineHomeFeed();
