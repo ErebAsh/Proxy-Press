@@ -463,16 +463,17 @@ export default function CreatePostClient() {
       const selectedFile = fileInputRef.current?.files?.[0];
       
       // 1. Process media
-      if (mediaUrl && (selectedFile || mediaUrl.startsWith('blob:') || mediaUrl.startsWith('data:'))) {
+      if (mediaUrl) {
         let fileToUpload: File | null = null;
         
-        if (selectedFile) {
-          fileToUpload = selectedFile;
-        } else if (mediaUrl.startsWith('blob:') || mediaUrl.startsWith('data:')) {
+        try {
+          // Always fetch from mediaUrl (blob/data) to bypass Capacitor Android native File object quirks
           const res = await fetch(mediaUrl);
           const blob = await res.blob();
           const isVideo = blob.type.startsWith('video/');
-          fileToUpload = new File([blob], isVideo ? "recorded-video.webm" : "capture.jpg", { type: blob.type });
+          fileToUpload = new File([blob], isVideo ? "upload.webm" : "upload.jpg", { type: blob.type });
+        } catch (e) {
+          console.error("Failed to fetch blob from mediaUrl:", e);
         }
 
         if (fileToUpload) {
