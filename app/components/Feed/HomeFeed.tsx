@@ -157,7 +157,7 @@ export default function HomeFeed() {
 
   return (
     <div 
-      className="feed-container" 
+      className="feed-container has-mobile-header" 
       id="home-feed"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
