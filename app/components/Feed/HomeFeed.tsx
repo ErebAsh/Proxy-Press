@@ -2,16 +2,18 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import type { Category, Post } from '@/lib/data';
+import { categories } from '@/lib/data';
 import PostCard from './PostCard';
-import CategoryFilters from './CategoryFilters';
 import { getInitialData, getCurrentUser, getProfileData, getMorePosts } from '@/lib/actions';
 import { OfflineManager } from '@/lib/offline-manager';
 
 let globalInMemoryPosts: any[] = [];
 let globalInMemoryLoaded = false;
+let globalSessionFetchAttempted = false; // Tracks if we already fetched during this session
 
 export default function HomeFeed() {
   const [activeCategory, setActiveCategory] = useState<Category | 'All'>('All');
+  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const [posts, setPosts] = useState<any[]>(globalInMemoryPosts);
   const [isLoading, setIsLoading] = useState(!globalInMemoryLoaded);
   const [offset, setOffset] = useState(10);
@@ -87,6 +89,13 @@ export default function HomeFeed() {
     loadCache();
 
     async function loadData() {
+      // Only do background fetch on app open or hard refresh (once per session)
+      if (globalSessionFetchAttempted) {
+        console.log('[Background] Skipping network fetch (already fetched this session).');
+        return;
+      }
+      globalSessionFetchAttempted = true;
+
       try {
         const user = await getCurrentUser();
         
@@ -105,11 +114,27 @@ export default function HomeFeed() {
             timeAgo: p.publishedAt ? formatTimeAgo(p.publishedAt) : 'Recently',
             isLiked: Array.isArray(p.likesList) ? p.likesList.some((l: any) => l.userId === user?.id) : false,
           }));
-          setPosts(adaptedPosts);
-          globalInMemoryPosts = adaptedPosts;
+          
+          setPosts(prevPosts => {
+            // Check if new content is available by comparing first post ID or length
+            const isNewContentAvailable = 
+              prevPosts.length === 0 || 
+              (adaptedPosts.length > 0 && prevPosts[0].id !== adaptedPosts[0].id) ||
+              prevPosts.length !== adaptedPosts.length;
+            
+            if (isNewContentAvailable) {
+              console.log('[Background] New content found, updating feed.');
+              globalInMemoryPosts = adaptedPosts;
+              return adaptedPosts;
+            }
+            
+            console.log('[Background] No new content, keeping cached view.');
+            return prevPosts;
+          });
+          
           globalInMemoryLoaded = true;
           
-          // 2. Update cache with fresh data
+          // 2. Update cache with fresh data in the background
           OfflineManager.saveData('home_feed_cache', {
             posts: adaptedPosts,
             timestamp: Date.now()
@@ -257,11 +282,7 @@ export default function HomeFeed() {
         {isRefreshing ? 'Updating...' : 'Pull to update'}
       </div>
 
-      {/* Category filters */}
-      <CategoryFilters 
-        activeCategory={activeCategory} 
-        onCategoryChange={setActiveCategory} 
-      />
+      {/* Category filters removed - replaced by floating button */}
 
       {/* News feed */}
       <div id="posts-feed" style={{ padding: '4px 16px 0' }}>
@@ -325,6 +346,99 @@ export default function HomeFeed() {
           </div>
         </div>
       )}
+
+      {/* Floating Category Button */}
+      <div style={{
+        position: 'fixed',
+        bottom: '80px',
+        right: '20px',
+        zIndex: 1000,
+      }}>
+        {isCategoryMenuOpen && (
+          <div style={{
+            position: 'absolute',
+            bottom: '60px',
+            right: '0',
+            background: 'var(--background, white)',
+            borderRadius: '16px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+            padding: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
+            minWidth: '160px',
+            maxHeight: '300px',
+            overflowY: 'auto',
+            border: '1px solid var(--border-color, #e5e7eb)',
+          }}>
+            <button
+              onClick={() => { setActiveCategory('All'); setIsCategoryMenuOpen(false); }}
+              style={{
+                padding: '10px 14px',
+                border: 'none',
+                background: activeCategory === 'All' ? 'rgba(2, 132, 199, 0.1)' : 'transparent',
+                color: activeCategory === 'All' ? '#0284c7' : 'inherit',
+                borderRadius: '10px',
+                textAlign: 'left',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                cursor: 'pointer',
+                fontWeight: activeCategory === 'All' ? '600' : '400',
+                fontSize: '14px',
+              }}
+            >
+              <span>🌎</span>
+              <span>All news</span>
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat.name}
+                onClick={() => { setActiveCategory(cat.name); setIsCategoryMenuOpen(false); }}
+                style={{
+                  padding: '10px 14px',
+                  border: 'none',
+                  background: activeCategory === cat.name ? 'rgba(2, 132, 199, 0.1)' : 'transparent',
+                  color: activeCategory === cat.name ? '#0284c7' : 'inherit',
+                  borderRadius: '10px',
+                  textAlign: 'left',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  fontWeight: activeCategory === cat.name ? '600' : '400',
+                  fontSize: '14px',
+                }}
+              >
+                <span>{cat.emoji}</span>
+                <span>{cat.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={() => setIsCategoryMenuOpen(!isCategoryMenuOpen)}
+          style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: '28px',
+            background: '#0284c7',
+            color: 'white',
+            border: 'none',
+            boxShadow: '0 4px 14px rgba(2, 132, 199, 0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '24px',
+            cursor: 'pointer',
+            transition: 'transform 0.2s ease',
+          }}
+          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
+          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          {activeCategory === 'All' ? '🌎' : categories.find(c => c.name === activeCategory)?.emoji || '📁'}
+        </button>
+      </div>
     </div>
   );
 }
