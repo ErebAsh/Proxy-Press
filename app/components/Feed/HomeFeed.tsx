@@ -12,13 +12,16 @@ export default function HomeFeed() {
   const [posts, setPosts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const cacheLoaded = useRef(false);
+  const freshDataLoaded = useRef(false);
 
   useEffect(() => {
     async function loadCache() {
-      if (cacheLoaded.current) return;
+      if (cacheLoaded.current || freshDataLoaded.current) return;
       
       // 1. Try SQLite Global Feed first
       const offlineFeed = await OfflineManager.getOfflineHomeFeed();
+      if (freshDataLoaded.current) return; // Abort if network finished first
+      
       if (offlineFeed && offlineFeed.length > 0) {
         console.log('[Offline] SQLite Home Feed loaded');
         const adapted = offlineFeed.map((p: any) => ({
@@ -34,6 +37,7 @@ export default function HomeFeed() {
       }
 
       // 2. Legacy Preferences Fallback
+      if (freshDataLoaded.current) return;
       const cached = await OfflineManager.loadData<any>('home_feed_cache');
       if (cached && cached.posts && cached.posts.length > 0) {
         console.log('[Offline] Legacy cache load');
@@ -51,6 +55,7 @@ export default function HomeFeed() {
         const data = await getInitialData(user?.id);
         
         if (data.posts) {
+          freshDataLoaded.current = true;
           const adaptedPosts = data.posts.map((p: any) => ({
             ...p,
             timeAgo: p.publishedAt ? formatTimeAgo(p.publishedAt) : 'Recently',
