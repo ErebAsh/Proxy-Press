@@ -7,10 +7,13 @@ import CategoryFilters from './CategoryFilters';
 import { getInitialData, getCurrentUser, getProfileData } from '@/lib/actions';
 import { OfflineManager } from '@/lib/offline-manager';
 
+let globalInMemoryPosts: any[] = [];
+let globalInMemoryLoaded = false;
+
 export default function HomeFeed() {
   const [activeCategory, setActiveCategory] = useState<Category | 'All'>('All');
-  const [posts, setPosts] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [posts, setPosts] = useState<any[]>(globalInMemoryPosts);
+  const [isLoading, setIsLoading] = useState(!globalInMemoryLoaded);
   const cacheLoaded = useRef(false);
   const freshDataLoaded = useRef(false);
 
@@ -32,6 +35,8 @@ export default function HomeFeed() {
         }));
         setPosts(adapted);
         setIsLoading(false);
+        globalInMemoryPosts = adapted;
+        globalInMemoryLoaded = true;
         cacheLoaded.current = true;
         return;
       }
@@ -62,6 +67,8 @@ export default function HomeFeed() {
             isLiked: Array.isArray(p.likesList) ? p.likesList.some((l: any) => l.userId === user?.id) : false,
           }));
           setPosts(adaptedPosts);
+          globalInMemoryPosts = adaptedPosts;
+          globalInMemoryLoaded = true;
           
           // 2. Update cache with fresh data
           OfflineManager.saveData('home_feed_cache', {
