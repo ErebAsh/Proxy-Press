@@ -123,7 +123,7 @@ export default function ExploreClient({ initialData }: { initialData: any }) {
     : (activeCategory === 'All' ? trendingPosts : trendingPosts.filter(p => p.category === activeCategory));
 
   return (
-    <div className="explore-container feed-container" id="explore-page">
+    <div className="explore-container feed-container extra-bottom-space" id="explore-page">
       {/* Header */}
       <div className="explore-header-premium">
         <h1 className="explore-title">Explore</h1>

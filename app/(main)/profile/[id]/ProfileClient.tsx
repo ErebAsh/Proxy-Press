@@ -641,7 +641,7 @@ export default function ProfileClient({ id, initialData }: { id: string; initial
   // Remove the blocking full-page spinner to allow partial/skeleton rendering
 
   return (
-    <div className="ig-profile" id="profile-page" style={{ position: 'relative' }}>
+    <div className="ig-profile extra-bottom-space" id="profile-page" style={{ position: 'relative' }}>
       {/* ─── Skeleton Loading State (Only if no user data yet) ─── */}
       {!user && isLoading && (
         <div className="profile-skeleton" style={{ padding: '20px' }}>

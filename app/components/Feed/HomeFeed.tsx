@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import type { Category, Post } from '@/lib/data';
 import PostCard from './PostCard';
 import CategoryFilters from './CategoryFilters';
-import { getInitialData, getCurrentUser, getProfileData } from '@/lib/actions';
+import { getInitialData, getCurrentUser, getProfileData, getMorePosts } from '@/lib/actions';
 import { OfflineManager } from '@/lib/offline-manager';
 
 let globalInMemoryPosts: any[] = [];
@@ -14,8 +14,40 @@ export default function HomeFeed() {
   const [activeCategory, setActiveCategory] = useState<Category | 'All'>('All');
   const [posts, setPosts] = useState<any[]>(globalInMemoryPosts);
   const [isLoading, setIsLoading] = useState(!globalInMemoryLoaded);
+  const [offset, setOffset] = useState(10);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const cacheLoaded = useRef(false);
   const freshDataLoaded = useRef(false);
+
+  const loadMorePosts = async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    try {
+      const user = await getCurrentUser();
+      const morePosts = await getMorePosts(user?.id, 10, offset);
+      
+      if (morePosts && morePosts.length > 0) {
+        const adaptedPosts = morePosts.map((p: any) => ({
+          ...p,
+          timeAgo: p.publishedAt ? formatTimeAgo(p.publishedAt) : 'Recently',
+          isLiked: Array.isArray(p.likesList) ? p.likesList.some((l: any) => l.userId === user?.id) : false,
+        }));
+        
+        setPosts(prev => [...prev, ...adaptedPosts]);
+        setOffset(prev => prev + 10);
+        if (morePosts.length < 10) {
+          setHasMore(false);
+        }
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error('Failed to load more posts:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     async function loadCache() {
@@ -91,6 +123,25 @@ export default function HomeFeed() {
     }
     loadData();
   }, []);
+
+  // ─── INFINITE SCROLL LOGIC ───
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+          loadMorePosts();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    
+    const target = document.getElementById('load-more-trigger');
+    if (target) observer.observe(target);
+    
+    return () => {
+      if (target) observer.unobserve(target);
+    };
+  }, [hasMore, isLoadingMore, offset]);
 
   // ─── PULL TO REFRESH LOGIC ───
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -176,7 +227,7 @@ export default function HomeFeed() {
 
   return (
     <div 
-      className="feed-container has-mobile-header" 
+      className="feed-container has-mobile-header extra-bottom-space" 
       id="home-feed"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -213,7 +264,7 @@ export default function HomeFeed() {
       />
 
       {/* News feed */}
-      <div id="posts-feed" style={{ paddingTop: '4px' }}>
+      <div id="posts-feed" style={{ padding: '4px 16px 0' }}>
         {/* Hero card */}
         {heroPost && (
           <PostCard key={heroPost.id} post={heroPost} index={0} variant="hero" />
@@ -249,6 +300,18 @@ export default function HomeFeed() {
                 ? 'Be the first to publish a story'
                 : `No stories in ${activeCategory} category`}
             </p>
+          </div>
+        )}
+
+        {/* Trigger for infinite scroll */}
+        <div id="load-more-trigger" style={{ height: '20px', background: 'transparent' }} />
+
+        {isLoadingMore && (
+          <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-subtle)', fontSize: '13px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }} />
+              Loading more...
+            </div>
           </div>
         )}
       </div>

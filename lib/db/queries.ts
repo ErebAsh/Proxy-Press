@@ -6,7 +6,7 @@ export async function getUsers() {
   return await db.select().from(schema.users);
 }
 
-export async function getPosts(userId?: string) {
+export async function getPosts(userId?: string, limit: number = 10, offset: number = 0) {
   let excludedUserIds: string[] = [];
   let followingUserIds: string[] = [];
   
@@ -42,7 +42,9 @@ export async function getPosts(userId?: string) {
       userId ? eq(schema.posts.authorId, userId) : undefined
     )
   ))
-  .orderBy(desc(schema.posts.publishedAt));
+  .orderBy(desc(schema.posts.publishedAt))
+  .limit(limit)
+  .offset(offset);
 
   if (results.length === 0) return [];
 
