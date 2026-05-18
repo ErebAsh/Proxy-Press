@@ -43,12 +43,6 @@ public class MainActivity extends BridgeActivity {
             } catch (Exception e) {}
         }, 1000);
         
-        this.getBridge().getWebView().setWebChromeClient(new WebChromeClient() {
-            @Override
-            public void onPermissionRequest(final PermissionRequest request) {
-                MainActivity.this.runOnUiThread(() -> request.grant(request.getResources()));
-            }
-        });
     }
 
     private void showNativeSplash() {

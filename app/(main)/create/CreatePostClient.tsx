@@ -91,6 +91,48 @@ export default function CreatePostClient() {
     });
   };
 
+  const compressImage = async (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // Scale down if too large (max 1920px)
+        const MAX_SIZE = 1920;
+        if (width > height && width > MAX_SIZE) {
+          height *= MAX_SIZE / width;
+          width = MAX_SIZE;
+        } else if (height > MAX_SIZE) {
+          width *= MAX_SIZE / height;
+          height = MAX_SIZE;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Canvas toBlob failed'));
+            URL.revokeObjectURL(url);
+          }, 'image/jpeg', 0.8); // 80% quality JPEG
+        } else {
+          reject(new Error('Failed to get canvas context'));
+          URL.revokeObjectURL(url);
+        }
+      };
+      img.onerror = (err) => {
+        reject(err);
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    });
+  };
+
   useEffect(() => {
     const main = document.getElementById('main-content');
     if (main) {
@@ -174,9 +216,28 @@ export default function CreatePostClient() {
           setIsCompressing(false);
         }
       } else {
-        const url = URL.createObjectURL(file);
-        setMediaUrl(url);
-        setMediaType(isVideo ? 'video' : 'image');
+        // Compress image if larger than 2MB to avoid Vercel 4.5MB payload limit
+        if (file.type.startsWith('image/') && file.size > 2 * 1024 * 1024) {
+          try {
+            const compressedBlob = await compressImage(file);
+            const url = URL.createObjectURL(compressedBlob);
+            setMediaUrl(url);
+            setMediaType('image');
+            const compressedFile = new File([compressedBlob], "compressed-image.jpg", { type: "image/jpeg" });
+            const dT = new DataTransfer();
+            dT.items.add(compressedFile);
+            if (fileInputRef.current) fileInputRef.current.files = dT.files;
+          } catch (err) {
+            console.error('Image compression failed', err);
+            const url = URL.createObjectURL(file);
+            setMediaUrl(url);
+            setMediaType('image');
+          }
+        } else {
+          const url = URL.createObjectURL(file);
+          setMediaUrl(url);
+          setMediaType('image');
+        }
       }
     }
   };
@@ -205,9 +266,28 @@ export default function CreatePostClient() {
           setIsCompressing(false);
         }
       } else {
-        const url = URL.createObjectURL(file);
-        setMediaUrl(url);
-        setMediaType(isVideo ? 'video' : 'image');
+        // Compress image if larger than 2MB to avoid Vercel 4.5MB payload limit
+        if (file.type.startsWith('image/') && file.size > 2 * 1024 * 1024) {
+          try {
+            const compressedBlob = await compressImage(file);
+            const url = URL.createObjectURL(compressedBlob);
+            setMediaUrl(url);
+            setMediaType('image');
+            const compressedFile = new File([compressedBlob], "compressed-image.jpg", { type: "image/jpeg" });
+            const dT = new DataTransfer();
+            dT.items.add(compressedFile);
+            if (fileInputRef.current) fileInputRef.current.files = dT.files;
+          } catch (err) {
+            console.error('Image compression failed', err);
+            const url = URL.createObjectURL(file);
+            setMediaUrl(url);
+            setMediaType('image');
+          }
+        } else {
+          const url = URL.createObjectURL(file);
+          setMediaUrl(url);
+          setMediaType('image');
+        }
       }
     }
   };
@@ -446,9 +526,9 @@ export default function CreatePostClient() {
       }
 
       setPublished(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Publish error:', err);
-      alert('Failed to publish post. Please try again.');
+      alert(`Failed to publish post: ${err?.message || 'Please try again. Check server logs.'}`);
     } finally {
       setPublishing(false);
     }
