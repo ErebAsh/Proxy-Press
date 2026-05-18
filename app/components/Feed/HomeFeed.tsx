@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import type { Category, Post } from '@/lib/data';
 import { categories } from '@/lib/data';
 import PostCard from './PostCard';
@@ -14,7 +15,19 @@ let globalSessionFetchAttempted = false; // Tracks if we already fetched during 
 export default function HomeFeed() {
   const [activeCategory, setActiveCategory] = useState<Category | 'All'>('All');
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [posts, setPosts] = useState<any[]>(globalInMemoryPosts);
+
+  // Auto-close menu after 5 seconds of inactivity
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isCategoryMenuOpen) {
+      timer = setTimeout(() => {
+        setIsCategoryMenuOpen(false);
+      }, 5000);
+    }
+    return () => clearTimeout(timer);
+  }, [isCategoryMenuOpen]);
   const [isLoading, setIsLoading] = useState(!globalInMemoryLoaded);
   const [offset, setOffset] = useState(10);
   const [hasMore, setHasMore] = useState(true);
@@ -52,6 +65,7 @@ export default function HomeFeed() {
   };
 
   useEffect(() => {
+    setMounted(true);
     async function loadCache() {
       if (cacheLoaded.current || freshDataLoaded.current) return;
       
@@ -99,13 +113,7 @@ export default function HomeFeed() {
       try {
         const user = await getCurrentUser();
         
-        // Add a 5-second timeout to prevent getting stuck
-        const dataPromise = getInitialData(user?.id);
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Network timeout')), 5000)
-        );
-        
-        const data = await Promise.race([dataPromise, timeoutPromise]) as any;
+        const data = await getInitialData(user?.id) as any;
         
         if (data && data.posts) {
           freshDataLoaded.current = true;
@@ -251,9 +259,17 @@ export default function HomeFeed() {
     : filteredPosts;
 
   return (
-    <div 
-      className="feed-container has-mobile-header extra-bottom-space" 
-      id="home-feed"
+    <>
+      <style>{`
+        @keyframes floating-btn {
+          0% { translate: 0 0px; }
+          50% { translate: 0 -6px; }
+          100% { translate: 0 0px; }
+        }
+      `}</style>
+      <div 
+        className="feed-container has-mobile-header" 
+        id="home-feed"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -285,7 +301,7 @@ export default function HomeFeed() {
       {/* Category filters removed - replaced by floating button */}
 
       {/* News feed */}
-      <div id="posts-feed" style={{ padding: '4px 16px 0' }}>
+      <div id="posts-feed" style={{ padding: '4px 16px 35px' }}>
         {/* Hero card */}
         {heroPost && (
           <PostCard key={heroPost.id} post={heroPost} index={0} variant="hero" />
@@ -311,7 +327,7 @@ export default function HomeFeed() {
         {!isLoading && filteredPosts.length === 0 && (
           <div style={{ 
             textAlign: 'center', 
-            padding: '60px 20px', 
+            padding: '30px 20px', 
             color: 'var(--text-muted)' 
           }}>
             <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.7 }}>📭</div>
@@ -346,22 +362,41 @@ export default function HomeFeed() {
           </div>
         </div>
       )}
+    </div>
 
       {/* Floating Category Button */}
-      <div style={{
-        position: 'fixed',
-        bottom: '80px',
-        right: '20px',
-        zIndex: 1000,
-      }}>
-        {isCategoryMenuOpen && (
+      {mounted && createPortal(
+        <div style={{
+          position: 'fixed',
+          bottom: 'calc(64px + env(safe-area-inset-bottom) + 16px)',
+          right: '16px',
+          zIndex: 1000,
+        }}>
+          {/* Invisible backdrop to close menu when clicking outside */}
+          <div 
+            onClick={() => setIsCategoryMenuOpen(false)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.1)', // Subtle dim
+              zIndex: 999,
+              opacity: isCategoryMenuOpen ? 1 : 0,
+              visibility: isCategoryMenuOpen ? 'visible' : 'hidden',
+              transition: 'opacity 0.2s ease, visibility 0.2s',
+            }}
+          />
+          
+          {/* Menu */}
           <div style={{
             position: 'absolute',
-            bottom: '60px',
+            bottom: '0', // Sit where the button was
             right: '0',
-            background: 'var(--background, white)',
+            background: 'var(--surface, #1a1a1a)',
             borderRadius: '16px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
             padding: '8px',
             display: 'flex',
             flexDirection: 'column',
@@ -369,7 +404,14 @@ export default function HomeFeed() {
             minWidth: '160px',
             maxHeight: '300px',
             overflowY: 'auto',
-            border: '1px solid var(--border-color, #e5e7eb)',
+            border: '1px solid var(--border, rgba(255,255,255,0.1))',
+            zIndex: 1000,
+            // Transition
+            opacity: isCategoryMenuOpen ? 1 : 0,
+            transform: isCategoryMenuOpen ? 'scale(1)' : 'scale(0.8)',
+            transformOrigin: 'bottom right',
+            visibility: isCategoryMenuOpen ? 'visible' : 'hidden',
+            transition: 'transform 0.2s cubic-bezier(0.2, 1, 0.2, 1), opacity 0.2s ease, visibility 0.2s',
           }}>
             <button
               onClick={() => { setActiveCategory('All'); setIsCategoryMenuOpen(false); }}
@@ -377,7 +419,7 @@ export default function HomeFeed() {
                 padding: '10px 14px',
                 border: 'none',
                 background: activeCategory === 'All' ? 'rgba(2, 132, 199, 0.1)' : 'transparent',
-                color: activeCategory === 'All' ? '#0284c7' : 'inherit',
+                color: activeCategory === 'All' ? '#0284c7' : 'var(--text, #ffffff)',
                 borderRadius: '10px',
                 textAlign: 'left',
                 display: 'flex',
@@ -399,7 +441,7 @@ export default function HomeFeed() {
                   padding: '10px 14px',
                   border: 'none',
                   background: activeCategory === cat.name ? 'rgba(2, 132, 199, 0.1)' : 'transparent',
-                  color: activeCategory === cat.name ? '#0284c7' : 'inherit',
+                  color: activeCategory === cat.name ? '#0284c7' : 'var(--text, #ffffff)',
                   borderRadius: '10px',
                   textAlign: 'left',
                   display: 'flex',
@@ -415,31 +457,39 @@ export default function HomeFeed() {
               </button>
             ))}
           </div>
-        )}
-        <button
-          onClick={() => setIsCategoryMenuOpen(!isCategoryMenuOpen)}
-          style={{
-            width: '56px',
-            height: '56px',
-            borderRadius: '28px',
-            background: '#0284c7',
-            color: 'white',
-            border: 'none',
-            boxShadow: '0 4px 14px rgba(2, 132, 199, 0.4)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '24px',
-            cursor: 'pointer',
-            transition: 'transform 0.2s ease',
-          }}
-          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
-          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-        >
-          {activeCategory === 'All' ? '🌎' : categories.find(c => c.name === activeCategory)?.emoji || '📁'}
-        </button>
-      </div>
-    </div>
+          
+          {/* Floating Button */}
+          <button
+            onClick={() => setIsCategoryMenuOpen(true)}
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '28px',
+              background: 'linear-gradient(135deg, #0ea5e9, #2563eb)', // Vibrant blue gradient
+              color: 'white',
+              border: 'none',
+              boxShadow: '0 8px 25px rgba(37, 99, 235, 0.5)', // Stronger blue glow
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '38px', // Even bigger logo
+              cursor: 'pointer',
+              // Transition
+              opacity: isCategoryMenuOpen ? 0 : 1,
+              scale: isCategoryMenuOpen ? '0.8' : '1',
+              visibility: isCategoryMenuOpen ? 'hidden' : 'visible',
+              animation: isCategoryMenuOpen ? 'none' : 'floating-btn 3s ease-in-out infinite',
+              transition: 'scale 0.2s ease, opacity 0.2s ease, visibility 0.2s',
+            }}
+            onMouseDown={(e) => e.currentTarget.style.scale = '0.95'}
+            onMouseUp={(e) => e.currentTarget.style.scale = '1'}
+          >
+            {activeCategory === 'All' ? '🌎' : categories.find(c => c.name === activeCategory)?.emoji || '📁'}
+          </button>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 
