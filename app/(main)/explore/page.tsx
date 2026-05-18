@@ -1,6 +1,8 @@
 import ExploreClient from './ExploreClient';
 import { getExploreDataAction, getCurrentUser, getFollowing } from '@/lib/actions';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ExplorePage() {
   let initialData = null;
   

@@ -7,6 +7,8 @@ import MainContent from '@/app/components/Layout/MainContent';
 import { Suspense } from 'react';
 import UserActivityRecorder from '@/app/components/UserActivityRecorder';
 
+export const dynamic = 'force-dynamic';
+
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="app-shell">
