@@ -515,7 +515,7 @@ export default function CreatePostClient() {
           videoUrl: finalVideoUrl || undefined,
         });
       } else {
-        await createPost({
+        const res = await createPost({
           title,
           description,
           content: description, 
@@ -524,6 +524,28 @@ export default function CreatePostClient() {
           videoUrl: finalVideoUrl || undefined,
           authorId: user.id,
         });
+
+        if (res.success && res.id) {
+          try {
+            const { sqliteService } = await import('@/lib/sqlite-db');
+            await sqliteService.saveGlobalPost({
+              id: res.id,
+              slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + res.id,
+              title,
+              description,
+              imageUrl: finalMediaUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80',
+              localImageUrl: mediaUrl, // Optimistic local blob for instant rendering!
+              publishedAt: new Date().toISOString(),
+              likes: 0,
+              comments: 0,
+              category,
+              authorName: user.name,
+              authorAvatar: user.profilePicture || user.image
+            });
+          } catch (cacheErr) {
+            console.warn('Failed to optimistically cache post:', cacheErr);
+          }
+        }
       }
 
       setPublished(true);
