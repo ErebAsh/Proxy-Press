@@ -1,0 +1,89 @@
+name: Proxy-Press Hybrid Build & Deploy Pipeline
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: macos-14 # Mac runner is required to build iOS target via Xcode
+    
+    steps:
+      # ─── PHASE 1: LINT, TEST, TYPECHECK ───
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Typecheck TypeScript
+        run: npx tsc --noEmit
+
+      - name: Run ESLint
+        run: npm run lint
+
+      # ─── PHASE 2: NEXT.JS COMPILATION ───
+      - name: Compile Next.js Web Assets
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.PRODUCTION_API_URL }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+
+      # ─── PHASE 3: CAPACITOR SYNCHRONIZATION ───
+      - name: Install Capacitor CLI
+        run: npm install @capacitor/cli @capacitor/core
+
+      - name: Sync Web Assets to Native Platforms
+        run: npx cap sync
+
+      # ─── PHASE 4A: BUILD AND SIGN ANDROID APK/AAB ───
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+
+      - name: Build Android Bundle (AAB)
+        run: |
+          cd android
+          ./gradlew bundleRelease
+
+      - name: Sign Android Release
+        uses: r0adkll/sign-android-release@v1
+        id: sign_app
+        with:
+          releaseDirectory: android/app/build/outputs/bundle/release
+          signingKeyBase64: ${{ secrets.ANDROID_SIGNING_KEY }}
+          alias: ${{ secrets.ANDROID_KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      # ─── PHASE 4B: BUILD AND SIGN IOS IPA ───
+      - name: Setup Apple Provisioning Certificates
+        uses: apple-actions/import-codesign-certs@v2
+        with:
+          p12-file-base64: ${{ secrets.IOS_P12_CERTIFICATE }}
+          p12-password: ${{ secrets.IOS_P12_PASSWORD }}
+
+      - name: Build and Archive iOS App
+        run: |
+          npx cap open ios --product "Proxy-Press"
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -sdk iphoneos -configuration Release archive -archivePath App.xcarchive
+          xcodebuild -exportArchive -archivePath App.xcarchive -exportOptionsPlist ExportOptions.plist -exportPath build
+
+      # ─── PHASE 5: APP STORE DISTRIBUTION (FASTLANE) ───
+      - name: Upload to Google Play Store (Internal Track)
+        run: |
+          gem install fastlane
+          fastlane supply --aab ${{ steps.sign_app.outputs.signedReleaseFile }} --track internal --json_key_data '${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}'
+
+      - name: Upload to TestFlight / App Store
+        run: |
+          fastlane pilot upload --ipa ios/App/build/App.ipa --username ${{ secrets.APPLE_DEVELOPER_EMAIL }} --password ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}

@@ -43,6 +43,11 @@ export async function getInitialData(userId?: string) {
   return JSON.parse(JSON.stringify(data));
 }
 
+export async function getHomeFeedPostsOnly(userId?: string, limit: number = 10, offset: number = 0) {
+  const posts = await queries.getPosts(userId, limit, offset);
+  return JSON.parse(JSON.stringify(posts));
+}
+
 export async function getMorePosts(userId?: string, limit: number = 10, offset: number = 0) {
   const posts = await queries.getPosts(userId, limit, offset);
   return JSON.parse(JSON.stringify(posts));

@@ -5,14 +5,20 @@ import { createPortal } from 'react-dom';
 import type { Category, Post } from '@/lib/data';
 import { categories } from '@/lib/data';
 import PostCard from './PostCard';
-import { getInitialData, getCurrentUser, getProfileData, getMorePosts } from '@/lib/actions';
+import { getHomeFeedPostsOnly, getMorePosts } from '@/lib/actions';
 import { OfflineManager } from '@/lib/offline-manager';
+import { useIdentity } from '@/lib/IdentityContext';
 
 let globalInMemoryPosts: any[] = [];
 let globalInMemoryLoaded = false;
 let globalSessionFetchAttempted = false; // Tracks if we already fetched during this session
 
-export default function HomeFeed() {
+interface HomeFeedProps {
+  initialPostsPromise?: Promise<any[]>;
+}
+
+export default function HomeFeed({ initialPostsPromise }: HomeFeedProps) {
+  const { currentUserId } = useIdentity();
   const [activeCategory, setActiveCategory] = useState<Category | 'All'>('All');
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -39,14 +45,13 @@ export default function HomeFeed() {
     if (isLoadingMore || !hasMore) return;
     setIsLoadingMore(true);
     try {
-      const user = await getCurrentUser();
-      const morePosts = await getMorePosts(user?.id, 10, offset);
+      const morePosts = await getMorePosts(currentUserId || undefined, 10, offset);
       
       if (morePosts && morePosts.length > 0) {
         const adaptedPosts = morePosts.map((p: any) => ({
           ...p,
           timeAgo: p.publishedAt ? formatTimeAgo(p.publishedAt) : 'Recently',
-          isLiked: Array.isArray(p.likesList) ? p.likesList.some((l: any) => l.userId === user?.id) : false,
+          isLiked: Array.isArray(p.likesList) ? p.likesList.some((l: any) => l.userId === currentUserId) : false,
         }));
         
         setPosts(prev => [...prev, ...adaptedPosts]);
@@ -111,16 +116,17 @@ export default function HomeFeed() {
       globalSessionFetchAttempted = true;
 
       try {
-        const user = await getCurrentUser();
+        // ⚡ Promise Pipeline: await the server-initiated promise if present, else fallback
+        const freshPosts = initialPostsPromise
+          ? await initialPostsPromise
+          : await getHomeFeedPostsOnly(currentUserId || undefined, 10, 0);
         
-        const data = await getInitialData(user?.id) as any;
-        
-        if (data && data.posts) {
+        if (freshPosts && freshPosts.length > 0) {
           freshDataLoaded.current = true;
-          const adaptedPosts = data.posts.map((p: any) => ({
+          const adaptedPosts = freshPosts.map((p: any) => ({
             ...p,
             timeAgo: p.publishedAt ? formatTimeAgo(p.publishedAt) : 'Recently',
-            isLiked: Array.isArray(p.likesList) ? p.likesList.some((l: any) => l.userId === user?.id) : false,
+            isLiked: Array.isArray(p.likesList) ? p.likesList.some((l: any) => l.userId === currentUserId) : false,
           }));
           
           setPosts(prevPosts => {
@@ -155,7 +161,7 @@ export default function HomeFeed() {
       }
     }
     loadData();
-  }, []);
+  }, [currentUserId]);
 
   // ─── INFINITE SCROLL LOGIC ───
   useEffect(() => {
