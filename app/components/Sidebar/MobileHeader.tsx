@@ -1,14 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { useNotifications } from '@/lib/NotificationsContext';
 import './MobileHeader.css';
 
 export default function MobileHeader() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { unreadCount, markAllRead } = useNotifications();
+  const [isStory, setIsStory] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      setIsStory(params.get('story') === 'true');
+    }
+  }, []);
 
   const isNotifications = pathname === '/notifications';
   const isMessages = pathname.startsWith('/messages');
@@ -19,7 +27,6 @@ export default function MobileHeader() {
 
   const isSettings = pathname.startsWith('/settings');
   const isAdmin = pathname.startsWith('/admin');
-  const isStory = searchParams.get('story') === 'true';
 
   if (isProfile || isCreate || isExplore || isSettings || isAdmin || isArticle || isMessages || isStory) return null;
 
