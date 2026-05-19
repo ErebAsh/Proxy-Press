@@ -31,46 +31,10 @@ export default function ExploreClient({ initialData }: ExploreClientProps) {
   const [myFollowingIds, setMyFollowingIds] = useState<Set<string>>(new Set());
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  const staggerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
   const staggerPosts = (freshPosts: any[]) => {
     if (!freshPosts || freshPosts.length === 0) return;
-    
-    // Set first post instantly
-    setTrendingPosts([freshPosts[0]]);
-    
-    if (staggerIntervalRef.current) {
-      clearInterval(staggerIntervalRef.current);
-    }
-    
-    let index = 1;
-    staggerIntervalRef.current = setInterval(() => {
-      if (index < freshPosts.length) {
-        const nextPost = freshPosts[index];
-        if (nextPost) {
-          setTrendingPosts(prev => {
-            if (prev.some(p => p.id === nextPost.id)) {
-              return prev;
-            }
-            return [...prev, nextPost];
-          });
-        }
-        index++;
-      } else {
-        if (staggerIntervalRef.current) {
-          clearInterval(staggerIntervalRef.current);
-        }
-      }
-    }, 100);
+    setTrendingPosts(freshPosts);
   };
-
-  useEffect(() => {
-    return () => {
-      if (staggerIntervalRef.current) {
-        clearInterval(staggerIntervalRef.current);
-      }
-    };
-  }, []);
 
   // Load initial data / background refresh
   useEffect(() => {
@@ -324,7 +288,10 @@ export default function ExploreClient({ initialData }: ExploreClientProps) {
             <Link
               key={post.id}
               href={`/article/${post.slug}`}
-              className={`explore-item ${isLarge ? 'large' : ''}`}
+              className={`explore-item animate-fade-in ${isLarge ? 'large' : ''}`}
+              style={{
+                '--stagger-index': idx
+              } as React.CSSProperties}
             >
               <img 
                 src={post.imageUrl} 

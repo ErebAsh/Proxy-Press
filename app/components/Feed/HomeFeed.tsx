@@ -23,46 +23,10 @@ export default function HomeFeed({ initialPostsPromise }: HomeFeedProps) {
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [posts, setPosts] = useState<any[]>(globalInMemoryPosts);
-  const staggerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
   const staggerPosts = (freshPosts: any[]) => {
     if (!freshPosts || freshPosts.length === 0) return;
-    
-    // Set first post instantly
-    setPosts([freshPosts[0]]);
-    
-    if (staggerIntervalRef.current) {
-      clearInterval(staggerIntervalRef.current);
-    }
-    
-    let index = 1;
-    staggerIntervalRef.current = setInterval(() => {
-      if (index < freshPosts.length) {
-        const nextPost = freshPosts[index];
-        if (nextPost) {
-          setPosts(prev => {
-            if (prev.some(p => p.id === nextPost.id)) {
-              return prev;
-            }
-            return [...prev, nextPost];
-          });
-        }
-        index++;
-      } else {
-        if (staggerIntervalRef.current) {
-          clearInterval(staggerIntervalRef.current);
-        }
-      }
-    }, 100);
+    setPosts(freshPosts);
   };
-
-  useEffect(() => {
-    return () => {
-      if (staggerIntervalRef.current) {
-        clearInterval(staggerIntervalRef.current);
-      }
-    };
-  }, []);
 
   // Auto-close menu after 5 seconds of inactivity
   useEffect(() => {
@@ -226,7 +190,9 @@ export default function HomeFeed({ initialPostsPromise }: HomeFeedProps) {
   const isPulling = useRef(false);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (window.scrollY === 0) {
+    const mainContent = document.getElementById('main-content');
+    const scrollTop = mainContent ? mainContent.scrollTop : 0;
+    if (scrollTop === 0) {
       touchStart.current = e.touches[0].clientY;
       isPulling.current = true;
     }
@@ -234,21 +200,29 @@ export default function HomeFeed({ initialPostsPromise }: HomeFeedProps) {
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isPulling.current) return;
+    const mainContent = document.getElementById('main-content');
+    const scrollTop = mainContent ? mainContent.scrollTop : 0;
     const currentTouch = e.touches[0].clientY;
     const distance = currentTouch - touchStart.current;
 
-    if (distance > 0 && window.scrollY === 0) {
+    if (distance > 0 && scrollTop === 0) {
       // Add resistance to the pull
       const dampenedDistance = Math.min(distance * 0.4, 80);
       setPullDistance(dampenedDistance);
       if (dampenedDistance > 10) {
         if (e.cancelable) e.preventDefault();
       }
+    } else {
+      isPulling.current = false;
+      setPullDistance(0);
     }
   };
 
   const handleTouchEnd = async () => {
-    if (!isPulling.current) return;
+    if (!isPulling.current) {
+      setPullDistance(0);
+      return;
+    }
     isPulling.current = false;
 
     if (pullDistance > 60) {

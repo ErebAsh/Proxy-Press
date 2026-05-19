@@ -82,7 +82,12 @@
 
 .mobile-nav-create-wrapper {
   position: relative;
-  transform: translateY(-16px);
+  transform: translateY(-16px) !important;
+}
+
+.mobile-nav-create-wrapper:active {
+  transform: translateY(-16px) !important;
+  opacity: 1 !important;
 }
 
 .mobile-nav-create-btn {
@@ -95,18 +100,14 @@
   background: linear-gradient(135deg, var(--primary), #8B5CF6);
   color: #fff;
   box-shadow: 0 8px 16px rgba(99, 102, 241, 0.4);
-  transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
 .mobile-nav-create-btn:hover {
-  transform: translateY(-2px);
   box-shadow: 0 10px 20px rgba(99, 102, 241, 0.5);
 }
 
 .mobile-nav-create-btn:active {
-  transform: scale(0.9);
-  opacity: 0.8;
-  box-shadow: 0 4px 8px rgba(99, 102, 241, 0.3);
+  opacity: 0.9;
 }
 
 .mobile-nav-create-btn svg {

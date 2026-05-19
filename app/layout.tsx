@@ -40,6 +40,7 @@ import { IdentityProvider } from "@/lib/IdentityContext";
 import PWAProvider from "@/lib/PWAProvider";
 import GlobalRealtimeListener from "@/app/components/GlobalRealtimeListener";
 import CapacitorInitializer from "@/app/components/CapacitorInitializer";
+import SafeNavigationGuard from "@/app/components/SafeNavigationGuard";
 
 export default function RootLayout({
   children,
@@ -119,6 +120,7 @@ export default function RootLayout({
           <IdentityProvider>
             <NotificationsProvider>
               <GlobalRealtimeListener />
+              <SafeNavigationGuard />
               {children}
             </NotificationsProvider>
           </IdentityProvider>

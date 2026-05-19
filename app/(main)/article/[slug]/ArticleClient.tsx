@@ -38,46 +38,10 @@ export default function ArticleClient({ id, postDetailPromise, currentUserPromis
   const [scrolledPastTitle, setScrolledPastTitle] = useState(false);
   const headlineRef = useRef<HTMLHeadingElement>(null);
 
-  const staggerRelatedIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
   const staggerRelated = (freshRelated: any[]) => {
     if (!freshRelated || freshRelated.length === 0) return;
-    
-    // Set first related post instantly
-    setRelated([freshRelated[0]]);
-    
-    if (staggerRelatedIntervalRef.current) {
-      clearInterval(staggerRelatedIntervalRef.current);
-    }
-    
-    let index = 1;
-    staggerRelatedIntervalRef.current = setInterval(() => {
-      if (index < freshRelated.length) {
-        const nextPost = freshRelated[index];
-        if (nextPost) {
-          setRelated(prev => {
-            if (prev.some(p => p.id === nextPost.id)) {
-              return prev;
-            }
-            return [...prev, nextPost];
-          });
-        }
-        index++;
-      } else {
-        if (staggerRelatedIntervalRef.current) {
-          clearInterval(staggerRelatedIntervalRef.current);
-        }
-      }
-    }, 100);
+    setRelated(freshRelated);
   };
-
-  useEffect(() => {
-    return () => {
-      if (staggerRelatedIntervalRef.current) {
-        clearInterval(staggerRelatedIntervalRef.current);
-      }
-    };
-  }, []);
 
   // Track scroll to show/hide title in the sticky header
   useEffect(() => {

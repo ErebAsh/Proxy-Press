@@ -267,3 +267,20 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes fadeInSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.explore-item.animate-fade-in {
+  opacity: 0;
+  animation: fadeInSlideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: calc(var(--stagger-index, 0) * 50ms);
+}
+

@@ -131,45 +131,10 @@ export default function ProfileClient({ id, profilePromise }: ProfileClientProps
   const [isBlocked, setIsBlocked] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
 
-  const staggerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
   const staggerPosts = (freshPosts: any[]) => {
     if (!freshPosts || freshPosts.length === 0) return;
-    
-    setUserPosts([freshPosts[0]]);
-    
-    if (staggerIntervalRef.current) {
-      clearInterval(staggerIntervalRef.current);
-    }
-    
-    let index = 1;
-    staggerIntervalRef.current = setInterval(() => {
-      if (index < freshPosts.length) {
-        const nextPost = freshPosts[index];
-        if (nextPost) {
-          setUserPosts(prev => {
-            if (prev.some(p => p.id === nextPost.id)) {
-              return prev;
-            }
-            return [...prev, nextPost];
-          });
-        }
-        index++;
-      } else {
-        if (staggerIntervalRef.current) {
-          clearInterval(staggerIntervalRef.current);
-        }
-      }
-    }, 85);
+    setUserPosts(freshPosts);
   };
-
-  useEffect(() => {
-    return () => {
-      if (staggerIntervalRef.current) {
-        clearInterval(staggerIntervalRef.current);
-      }
-    };
-  }, []);
 
   // Settings Pre-warming: If this is my profile, keep my global user data fresh for Settings
   useEffect(() => {
@@ -827,8 +792,15 @@ export default function ProfileClient({ id, profilePromise }: ProfileClientProps
       </div>
 
       <div className="ig-grid">
-        {displayPosts.map(post => (
-          <Link key={post.id} href={`/article/${post.slug}`} className="ig-grid-item">
+        {displayPosts.map((post, idx) => (
+          <Link 
+            key={post.id} 
+            href={`/article/${post.slug}`} 
+            className="ig-grid-item"
+            style={{
+              '--stagger-index': idx
+            } as React.CSSProperties}
+          >
             <img src={post.imageUrl} alt={post.title} loading="lazy" />
           </Link>
         ))}
