@@ -180,9 +180,11 @@ function MessagesContent() {
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const pusherRef = useRef<any>(null);
   const typingTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
+  const isMounted = useRef(true);
 
   /* ─── Offline Manager Init ─── */
   useEffect(() => {
+    isMounted.current = true;
     OfflineManager.init();
 
     // Check initial online status
@@ -228,6 +230,7 @@ function MessagesContent() {
     });
 
     return () => {
+      isMounted.current = false;
       unsubStatus();
       unsubFlush();
     };
@@ -247,6 +250,7 @@ function MessagesContent() {
           OfflineManager.loadData<any[]>(`mystories_${lastId}`)
         ]);
 
+        if (!isMounted.current) return;
         if (cachedConvs && cachedConvs.length > 0) {
           console.log('[Offline] Instant startup for:', lastId);
           setConversations(cachedConvs);
@@ -266,6 +270,7 @@ function MessagesContent() {
         
         // Use cached ID or wait for fresh one
         const currentUser = await currentUserPromise;
+        if (!isMounted.current) return;
         const myId = currentUser?.id || currentUserId || 'me';
         
         if (currentUser) {
@@ -281,6 +286,8 @@ function MessagesContent() {
           getConversations(myId),
           getStories(myId)
         ]);
+        
+        if (!isMounted.current) return;
         
         let mappedConvs: Conversation[] = [];
         if (convs) {
@@ -556,6 +563,7 @@ function MessagesContent() {
       } else if (currentUserId && currentUserId !== 'me') {
         // If not in conversations yet, we might need to create a temporary new chat entry
         getUserProfile(targetUserId).then(targetUser => {
+          if (!isMounted.current) return;
           if (targetUser) {
             const displayName = (targetUser.name && targetUser.name.includes('/uploads/')) 
               ? (targetUser.username || 'User') 
@@ -2097,6 +2105,8 @@ function MessagesContent() {
 
         const res = await dbSendMessage(messagePayload);
 
+        if (!isMounted.current) return;
+
         // Mark as sent in UI
         setConversations(prev => prev.map(c => {
           const isTargetConv = c.id === activeChat || c.id === res.conversationId;
@@ -2117,6 +2127,7 @@ function MessagesContent() {
         }
       } catch (err) {
         console.error('Send message error, queuing offline:', err);
+        if (!isMounted.current) return;
         // Send failed — queue for background sync
         const offlineId = await OfflineManager.queueMessage(messagePayload);
         setConversations(prev => prev.map(c => ({

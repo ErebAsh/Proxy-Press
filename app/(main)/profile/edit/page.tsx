@@ -71,6 +71,14 @@ export default function EditProfilePage() {
     }
   }, []);
 
+  const isMounted = useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   // Load user data
   useEffect(() => {
     async function loadUser() {
@@ -218,8 +226,10 @@ export default function EditProfilePage() {
       });
 
       if (result.success) {
+        if (!isMounted.current) return;
         setIsSuccess(true);
         setTimeout(() => {
+          if (!isMounted.current) return;
           setShowConfirmModal(false);
           router.push('/profile');
           router.refresh();
@@ -228,7 +238,9 @@ export default function EditProfilePage() {
     } catch (err) {
       console.error('Failed to save profile:', err);
     } finally {
-      setIsSaving(false);
+      if (isMounted.current) {
+        setIsSaving(false);
+      }
     }
   };
 

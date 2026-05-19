@@ -17,6 +17,8 @@ function SafeNavigationGuardInner() {
   const progressTimer = useRef<NodeJS.Timeout | null>(null);
   const fadeOutTimer = useRef<NodeJS.Timeout | null>(null);
   const timeoutTimer = useRef<NodeJS.Timeout | null>(null);
+  // Generation counter: incremented on each new navigation to discard stale completions
+  const navGeneration = useRef<number>(0);
 
   // Performance Settings Configuration
   const [navLockEnabled, setNavLockEnabled] = useState(true);
@@ -87,36 +89,101 @@ function SafeNavigationGuardInner() {
     };
   }, []);
 
-  // Complete navigation when pathname or searchParams change
-  useEffect(() => {
-    if (pendingUrl.current) {
-      // Clear safety timeout
-      if (timeoutTimer.current) {
-        clearTimeout(timeoutTimer.current);
-        timeoutTimer.current = null;
-      }
+  // Helper: clean up all running timers
+  const cleanupTimers = () => {
+    if (progressTimer.current) { clearInterval(progressTimer.current); progressTimer.current = null; }
+    if (fadeOutTimer.current) { clearTimeout(fadeOutTimer.current); fadeOutTimer.current = null; }
+    if (timeoutTimer.current) { clearTimeout(timeoutTimer.current); timeoutTimer.current = null; }
+  };
 
-      // Set to 100% complete
-      setProgress(100);
-      
-      // Stop the incremental progress
-      if (progressTimer.current) {
-        clearInterval(progressTimer.current);
-        progressTimer.current = null;
+  // Helper: complete navigation UI (progress bar fill + fade out)
+  const completeNavigation = (gen: number) => {
+    // Ignore if a newer navigation has started since this was queued
+    if (gen !== navGeneration.current) return;
+
+    cleanupTimers();
+    setProgress(100);
+    
+    fadeOutTimer.current = setTimeout(() => {
+      if (gen !== navGeneration.current) return;
+      setNavigating(false);
+      setProgress(0);
+      pendingUrl.current = null;
+    }, 200);
+  };
+
+  // Complete navigation ONLY when the arrived pathname matches what we were navigating to.
+  // This is the critical fix: previously ANY pathname change was treated as "navigation complete"
+  // which caused a page B response to be misinterpreted as completing a navigation to page A.
+  useEffect(() => {
+    if (!pendingUrl.current) return;
+
+    // Normalize both URLs for comparison (strip trailing slashes, ignore query params for matching)
+    const normalize = (url: string) => {
+      try {
+        const u = new URL(url, window.location.origin);
+        return u.pathname.replace(/\/+$/, '') || '/';
+      } catch {
+        return url.replace(/\/+$/, '') || '/';
       }
-      
-      // Fade out after completion
-      fadeOutTimer.current = setTimeout(() => {
-        setNavigating(false);
-        setProgress(0);
-        pendingUrl.current = null;
-      }, 300);
+    };
+
+    const pendingPath = normalize(pendingUrl.current);
+    const arrivedPath = normalize(pathname);
+
+    if (arrivedPath === pendingPath) {
+      // The correct page has arrived — complete the navigation
+      completeNavigation(navGeneration.current);
     }
+    // If arrivedPath !== pendingPath, do NOT clear pendingUrl.
+    // The pending navigation is still in-flight or was superseded.
     
     return () => {
       if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
     };
   }, [pathname, searchParams]);
+
+  // Helper: start a new navigation tracking cycle
+  const startNavigationTracking = (href: string) => {
+    // Increment generation to invalidate any pending completion from a prior navigation
+    navGeneration.current += 1;
+    const gen = navGeneration.current;
+
+    cleanupTimers();
+
+    lastNavTime.current = Date.now();
+    pendingUrl.current = href;
+    setNavigating(true);
+    setProgress(10);
+
+    // Increment progress bar naturally
+    progressTimer.current = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 90) return 90;
+        const increment = Math.max(1, (90 - prev) * 0.15);
+        return Math.min(90, prev + increment);
+      });
+    }, 100);
+
+    // Safety timeout to prevent permanent deadlocks
+    if (navTimeout > 0) {
+      timeoutTimer.current = setTimeout(() => {
+        if (gen !== navGeneration.current) return;
+        console.warn(`[SafeNavigation] Transition to "${href}" timed out after ${navTimeout}ms. Resetting.`);
+        cleanupTimers();
+        setProgress(100);
+        fadeOutTimer.current = setTimeout(() => {
+          if (gen !== navGeneration.current) return;
+          setNavigating(false);
+          setProgress(0);
+          pendingUrl.current = null;
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('proxy-press-navigation-reset'));
+          }
+        }, 200);
+      }, navTimeout);
+    }
+  };
 
   // Intercept clicks globally in the capture phase
   useEffect(() => {
@@ -138,136 +205,48 @@ function SafeNavigationGuardInner() {
       const now = Date.now();
       const timeSinceLastNav = now - lastNavTime.current;
 
-      // Rule 1: Prevent double-click or rapid double-tap (within 600ms)
-      if (timeSinceLastNav < 600) {
-        console.log('[SafeNavigation] Throttled rapid duplicate click:', href);
+      // Rule 1: Prevent rapid repeated taps on the SAME link (within 250ms)
+      // Only block identical consecutive clicks — tapping different buttons/links is always allowed
+      if (pendingUrl.current === href && timeSinceLastNav < 250) {
+        console.log('[SafeNavigation] Throttled rapid duplicate tap:', href);
         event.preventDefault();
-        event.stopPropagation();
         return;
       }
 
       // Rule 3: Stuck Transition Escape Hatch
-      // If the user clicks the SAME link again after 1.2 seconds of it being pending/stuck,
-      // trigger an active programmatic override to bypass Next.js internal router freezes.
+      // If the user clicks the SAME link again after 1.2s of it being pending/stuck,
+      // force-navigate to it. Uses router.push (not replace) to ensure it wins the race.
       if (pendingUrl.current === href && timeSinceLastNav > 1200) {
-        console.warn(`[SafeNavigation] Transition to "${href}" is stuck. Triggering escape hatch programmatic redirect.`);
+        console.warn(`[SafeNavigation] Transition to "${href}" is stuck. Forcing navigation.`);
         
-        // Reset states
-        pendingUrl.current = null;
-        setNavigating(false);
-        setProgress(0);
-        if (progressTimer.current) clearInterval(progressTimer.current);
-        if (timeoutTimer.current) clearTimeout(timeoutTimer.current);
+        // Cancel the old tracking and start fresh
+        startNavigationTracking(href);
         
         // Dispatch navigation reset event to clear optimistic UI highlights
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('proxy-press-navigation-reset'));
         }
 
-        // Programmatic redirect to guarantee the page opens
+        // Force navigate — use window.location as an absolute guarantee
+        event.preventDefault();
+        event.stopPropagation();
+        
         try {
-          router.replace(href);
+          router.push(href);
         } catch {
           window.location.href = href;
         }
-
-        event.preventDefault();
-        event.stopPropagation();
         return;
       }
 
-      // Rule 2: Allow seamless override of pending navigations instead of hard-blocking
+      // Rule 2: If a different navigation is already pending, cancel it and start the new one
       if (navLockEnabled && pendingUrl.current && pendingUrl.current !== href) {
-        console.log(`[SafeNavigation] Overriding pending navigation to "${pendingUrl.current}" with new destination: "${href}"`);
-        pendingUrl.current = href;
-        lastNavTime.current = now;
-        
-        // Reset progress animation to restart for the new route
-        if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
-        if (progressTimer.current) clearInterval(progressTimer.current);
-        if (timeoutTimer.current) clearTimeout(timeoutTimer.current);
-        
-        setNavigating(true);
-        setProgress(10);
-        
-        progressTimer.current = setInterval(() => {
-          setProgress((prev) => {
-            if (prev >= 90) return 90;
-            const increment = Math.max(1, (90 - prev) * 0.15);
-            return Math.min(90, prev + increment);
-          });
-        }, 100);
-
-        if (navTimeout > 0) {
-          timeoutTimer.current = setTimeout(() => {
-            console.warn(`[SafeNavigation] Page transition to "${href}" timed out after ${navTimeout}ms. Resetting lock.`);
-            setProgress(100);
-            
-            if (progressTimer.current) {
-              clearInterval(progressTimer.current);
-              progressTimer.current = null;
-            }
-
-            fadeOutTimer.current = setTimeout(() => {
-              setNavigating(false);
-              setProgress(0);
-              pendingUrl.current = null;
-              if (typeof window !== 'undefined') {
-                window.dispatchEvent(new Event('proxy-press-navigation-reset'));
-              }
-            }, 300);
-          }, navTimeout);
-        }
-        
-        return; // Allow the click to proceed
+        console.log(`[SafeNavigation] Overriding pending "${pendingUrl.current}" → "${href}"`);
       }
 
-      // Allow navigation: Update lock states
-      lastNavTime.current = now;
-      pendingUrl.current = href;
-      
-      // Trigger progress bar animations
-      if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
-      if (progressTimer.current) clearInterval(progressTimer.current);
-      if (timeoutTimer.current) clearTimeout(timeoutTimer.current);
-      
-      setNavigating(true);
-      setProgress(10); // Start at 10%
-      
-      // Increment progress bar naturally
-      progressTimer.current = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 90) {
-            // Cap at 90% until transition finishes
-            return 90;
-          }
-          // Slow down as it gets closer to 90%
-          const increment = Math.max(1, (90 - prev) * 0.15);
-          return Math.min(90, prev + increment);
-        });
-      }, 100);
-
-      // Start safety timeout to prevent permanent deadlocks
-      if (navTimeout > 0) {
-        timeoutTimer.current = setTimeout(() => {
-          console.warn(`[SafeNavigation] Page transition to "${href}" timed out after ${navTimeout}ms. Resetting lock.`);
-          setProgress(100);
-          
-          if (progressTimer.current) {
-            clearInterval(progressTimer.current);
-            progressTimer.current = null;
-          }
-
-          fadeOutTimer.current = setTimeout(() => {
-            setNavigating(false);
-            setProgress(0);
-            pendingUrl.current = null;
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new Event('proxy-press-navigation-reset'));
-            }
-          }, 300);
-        }, navTimeout);
-      }
+      // Start tracking the new navigation (this also cancels any prior pending state)
+      startNavigationTracking(href);
+      // Allow the click to proceed to Next.js Link handler
     };
 
     // Add listener to the capture phase (third arg: true)
@@ -275,9 +254,7 @@ function SafeNavigationGuardInner() {
 
     return () => {
       document.removeEventListener('click', handleCaptureClick, true);
-      if (progressTimer.current) clearInterval(progressTimer.current);
-      if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
-      if (timeoutTimer.current) clearTimeout(timeoutTimer.current);
+      cleanupTimers();
     };
   }, [navLockEnabled, navTimeout]);
 

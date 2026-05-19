@@ -115,7 +115,7 @@ export default function MobileBottomNav() {
     }
 
     backgroundSync();
-    const interval = setInterval(backgroundSync, 30000); // Increased interval for better battery/performance
+    const interval = setInterval(backgroundSync, 60000); // Increased to 60s for better performance
     return () => clearInterval(interval);
   }, []);
 

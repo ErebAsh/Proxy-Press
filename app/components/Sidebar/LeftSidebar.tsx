@@ -80,7 +80,7 @@ export default function LeftSidebar() {
       }
     }
     load();
-    const interval = setInterval(load, 30000); // Poll every 30s
+    const interval = setInterval(load, 60000); // Poll every 60s (reduced from 30s for better perf)
     return () => clearInterval(interval);
   }, [pathname]);
 
