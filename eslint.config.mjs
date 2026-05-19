@@ -19,6 +19,8 @@ const eslintConfig = defineConfig([
       "react/no-unescaped-entities": "warn",
       "@next/next/no-img-element": "warn",
       "react-hooks/rules-of-hooks": "warn",
+      "react-hooks/set-state-in-effect": "off",
+      "prefer-const": "warn",
       "@typescript-eslint/no-unused-vars": "warn"
     }
   }

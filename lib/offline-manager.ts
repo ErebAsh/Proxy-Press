@@ -517,7 +517,6 @@ export const OfflineManager = {
         if (!user) continue;
 
         let finalMediaUrl = '';
-        let finalVideoUrl = '';
 
         // 1. Upload cached media if exists
         if (post.localImageUrl) {
