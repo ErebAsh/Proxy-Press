@@ -7,7 +7,10 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   
   // ⚡ Promise Pipeline: kick off user profile details query concurrently on server, do not await!
-  const profilePromise = getProfileData(id);
+  const profilePromise = getProfileData(id).catch(err => {
+    console.error("Profile page pipelining failure:", err);
+    return null;
+  });
 
   return <ProfileClient id={id} profilePromise={profilePromise} />;
 }

@@ -9,9 +9,9 @@ export default function ExplorePage() {
   const currentUserPromise = getCurrentUser();
 
   return (
-    <ExploreClient 
-      exploreDataPromise={exploreDataPromise} 
-      currentUserPromise={currentUserPromise} 
+    <ExploreClient
+      exploreDataPromise={exploreDataPromise}
+      currentUserPromise={currentUserPromise}
     />
   );
 }
