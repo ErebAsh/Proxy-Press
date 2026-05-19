@@ -73,65 +73,6 @@ export default function ExploreClient({ exploreDataPromise, currentUserPromise }
     };
   }, []);
 
-const OFFLINE_FALLBACK_POSTS = [
-  {
-    id: "offline_p1",
-    slug: "campus-fest-2026",
-    title: "Annual Campus Fest 2026: Schedule and Registrations Live!",
-    category: "Events" as const,
-    likes: 342,
-    comments: 56,
-    imageUrl: "https://images.unsplash.com/photo-1511578314322-379afb476865?w=600&auto=format&fit=crop&q=80",
-    author: { name: "Student Council", avatar: "🎓" }
-  },
-  {
-    id: "offline_p2",
-    slug: "midterm-exam-schedule",
-    title: "Official Midterm Examination Guidelines & Datesheet Released",
-    category: "Exams" as const,
-    likes: 215,
-    comments: 89,
-    imageUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=600&auto=format&fit=crop&q=80",
-    author: { name: "Academic Office", avatar: "📚" }
-  },
-  {
-    id: "offline_p3",
-    slug: "sports-meet-2026",
-    title: "Inter-College Athletics Championship: Call for Athletes",
-    category: "Sports" as const,
-    likes: 189,
-    comments: 24,
-    imageUrl: "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=600&auto=format&fit=crop&q=80",
-    author: { name: "Sports Club", avatar: "⚽" }
-  },
-  {
-    id: "offline_p4",
-    slug: "ai-club-hackathon",
-    title: "AI & Robotics Club: 24-Hour Campus Hackathon",
-    category: "Clubs" as const,
-    likes: 412,
-    comments: 67,
-    imageUrl: "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=600&auto=format&fit=crop&q=80",
-    author: { name: "AI Club", avatar: "🤖" }
-  },
-  {
-    id: "offline_p5",
-    slug: "campus-wifi-upgrade",
-    title: "IT Department Announces High-Speed Wi-Fi Upgrade in Dorms",
-    category: "College Daily Update" as const,
-    likes: 523,
-    comments: 112,
-    imageUrl: "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=600&auto=format&fit=crop&q=80",
-    author: { name: "IT Center", avatar: "💻" }
-  }
-];
-
-const OFFLINE_FALLBACK_USERS = [
-  { id: "u1", name: "Alex Johnson", username: "alexj", avatar: "👨‍💻", college: "Engineering", profilePicture: "" },
-  { id: "u2", name: "Sarah Miller", username: "sarahm", avatar: "👩‍🎨", college: "Design School", profilePicture: "" },
-  { id: "u3", name: "David Chen", username: "davidc", avatar: "🔬", college: "BioTech", profilePicture: "" }
-];
-
   // Load initial data / background refresh
   useEffect(() => {
     async function loadInitial() {
@@ -151,20 +92,16 @@ const OFFLINE_FALLBACK_USERS = [
         // Await the pipeline promises concurrently
         const [data, user] = await Promise.all([
           exploreDataPromise,
-          currentUserPromise,
+          currentUserPromise
         ]);
         
-        if (data && data.trendingPosts && data.trendingPosts.length > 0) {
+        if (data && data.trendingPosts) {
           const adapted = data.trendingPosts.map((p: any) => ({
             ...p,
             imageUrl: p.localImageUrl || p.imageUrl
           }));
           staggerPosts(adapted);
           setSuggestedUsers(data.suggestedUsers || []);
-        } else {
-          // If server call resolves to empty/null and local offline list is empty, fall back to pre-baked offline showcase
-          setTrendingPosts(prev => prev.length === 0 ? OFFLINE_FALLBACK_POSTS : prev);
-          setSuggestedUsers(prev => prev.length === 0 ? OFFLINE_FALLBACK_USERS : prev);
         }
         
         if (user) {
@@ -177,8 +114,6 @@ const OFFLINE_FALLBACK_USERS = [
         }
       } catch (err) {
         console.error('Failed to load explore data:', err);
-        setTrendingPosts(prev => prev.length === 0 ? OFFLINE_FALLBACK_POSTS : prev);
-        setSuggestedUsers(prev => prev.length === 0 ? OFFLINE_FALLBACK_USERS : prev);
       } finally {
         setIsLoading(false);
       }
