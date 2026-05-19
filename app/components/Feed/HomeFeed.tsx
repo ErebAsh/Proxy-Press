@@ -38,13 +38,15 @@ export default function HomeFeed({ initialPostsPromise }: HomeFeedProps) {
     let index = 1;
     staggerIntervalRef.current = setInterval(() => {
       if (index < freshPosts.length) {
-        setPosts(prev => {
-          if (prev.some(p => p.id === freshPosts[index].id)) {
-            index++;
-            return prev;
-          }
-          return [...prev, freshPosts[index]];
-        });
+        const nextPost = freshPosts[index];
+        if (nextPost) {
+          setPosts(prev => {
+            if (prev.some(p => p.id === nextPost.id)) {
+              return prev;
+            }
+            return [...prev, nextPost];
+          });
+        }
         index++;
       } else {
         if (staggerIntervalRef.current) {
