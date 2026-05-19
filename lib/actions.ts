@@ -136,8 +136,13 @@ import { unstable_noStore as noStore } from 'next/cache';
 
 export async function getConversations(userId: string) {
   noStore();
-  await cleanupExpiredMessages();
-  return JSON.parse(JSON.stringify(await queries.getConversations(userId)));
+  const [, conversations] = await Promise.all([
+    cleanupExpiredMessages().catch(err => {
+      console.error("Background messages cleanup failure:", err);
+    }),
+    queries.getConversations(userId)
+  ]);
+  return JSON.parse(JSON.stringify(conversations));
 }
 
 export async function getMessages(conversationId: string) {

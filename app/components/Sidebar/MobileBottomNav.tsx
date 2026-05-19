@@ -125,6 +125,17 @@ export default function MobileBottomNav() {
     setOptimisticTab(null);
   }, [pathname]);
 
+  // 4. Navigation Reset Sync Event (Mediator sync pattern)
+  useEffect(() => {
+    const handleNavigationReset = () => {
+      setOptimisticTab(null);
+    };
+    window.addEventListener('proxy-press-navigation-reset', handleNavigationReset);
+    return () => {
+      window.removeEventListener('proxy-press-navigation-reset', handleNavigationReset);
+    };
+  }, []);
+
   const isStory = searchParams.get('story') === 'true';
   const chatId = searchParams.get('chatId');
   const userId = searchParams.get('userId');

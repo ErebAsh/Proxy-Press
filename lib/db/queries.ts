@@ -177,20 +177,20 @@ export async function getAnnouncements() {
 }
 
 export async function getConversations(userId: string) {
-  // 1. Get user block lists (both directions)
-  const blocks = await db.select()
-    .from(schema.userBlocks)
-    .where(or(
-      eq(schema.userBlocks.userId, userId),
-      eq(schema.userBlocks.blockedId, userId)
-    ));
+  // 1 & 2. Get user block lists and IDs of conversations in parallel
+  const [blocks, participantResults] = await Promise.all([
+    db.select()
+      .from(schema.userBlocks)
+      .where(or(
+        eq(schema.userBlocks.userId, userId),
+        eq(schema.userBlocks.blockedId, userId)
+      )),
+    db.select({ id: schema.conversationParticipants.conversationId })
+      .from(schema.conversationParticipants)
+      .where(eq(schema.conversationParticipants.userId, userId))
+  ]);
   
   const blockedUserIds = blocks.map(b => b.userId === userId ? b.blockedId : b.userId);
-
-  // 2. Get IDs of conversations where this user is a participant
-  const participantResults = await db.select({ id: schema.conversationParticipants.conversationId })
-    .from(schema.conversationParticipants)
-    .where(eq(schema.conversationParticipants.userId, userId));
 
   const conversationIds = participantResults
     .map(p => p.id)
@@ -198,31 +198,31 @@ export async function getConversations(userId: string) {
 
   if (conversationIds.length === 0) return [];
 
-  // 3. Fetch full conversation data (without all messages)
-  const convs = await db.query.conversations.findMany({
-    where: inArray(schema.conversations.id, conversationIds),
-    orderBy: [desc(schema.conversations.lastMessageTime)],
-    with: {
-      participants: {
-        with: {
-          user: true,
+  // 3 & 4. Fetch full conversation data and unread counts in parallel
+  const [convs, unreadCounts] = await Promise.all([
+    db.query.conversations.findMany({
+      where: inArray(schema.conversations.id, conversationIds),
+      orderBy: [desc(schema.conversations.lastMessageTime)],
+      with: {
+        participants: {
+          with: {
+            user: true,
+          },
         },
       },
-    },
-  });
-
-  // 4. Efficiently fetch unread counts for all conversations in one query
-  const unreadCounts = await db.select({
-    conversationId: schema.messages.conversationId,
-    count: sql<number>`count(*)`
-  })
-  .from(schema.messages)
-  .where(and(
-    inArray(schema.messages.conversationId, conversationIds),
-    ne(schema.messages.senderId, userId),
-    eq(schema.messages.seen, false)
-  ))
-  .groupBy(schema.messages.conversationId);
+    }),
+    db.select({
+      conversationId: schema.messages.conversationId,
+      count: sql<number>`count(*)`
+    })
+    .from(schema.messages)
+    .where(and(
+      inArray(schema.messages.conversationId, conversationIds),
+      ne(schema.messages.senderId, userId),
+      eq(schema.messages.seen, false)
+    ))
+    .groupBy(schema.messages.conversationId)
+  ]);
 
   const unreadMap = new Map(unreadCounts.map(uc => [uc.conversationId, Number(uc.count)]));
 
@@ -412,19 +412,19 @@ export async function searchPosts(query: string) {
 }
 
 export async function getExploreData() {
-  // Fetch trending posts (recent posts with most likes/comments)
-  const trendingPosts = await db.query.posts.findMany({
-    with: {
-      author: true,
-    },
-    orderBy: [desc(schema.posts.likes)],
-    limit: 24,
-  });
-
-  // Fetch suggested users (simple random for now)
-  const suggestedUsers = await db.query.users.findMany({
-    limit: 15,
-  });
+  // Fetch trending posts (recent posts with most likes/comments) and suggested users in parallel
+  const [trendingPosts, suggestedUsers] = await Promise.all([
+    db.query.posts.findMany({
+      with: {
+        author: true,
+      },
+      orderBy: [desc(schema.posts.likes)],
+      limit: 24,
+    }),
+    db.query.users.findMany({
+      limit: 15,
+    })
+  ]);
 
   return {
     trendingPosts,
@@ -432,17 +432,14 @@ export async function getExploreData() {
   };
 }
 export async function getUnreadMessageCount(userId: string) {
-  const parts = await db.select({ id: schema.conversationParticipants.conversationId })
-    .from(schema.conversationParticipants)
-    .where(eq(schema.conversationParticipants.userId, userId));
-
-  const convIds = parts.map(p => p.id).filter((id): id is string => id !== null);
-  if (convIds.length === 0) return 0;
-
   const result = await db.select({ count: sql<number>`count(*)` })
     .from(schema.messages)
+    .innerJoin(
+      schema.conversationParticipants,
+      eq(schema.messages.conversationId, schema.conversationParticipants.conversationId)
+    )
     .where(and(
-      inArray(schema.messages.conversationId, convIds),
+      eq(schema.conversationParticipants.userId, userId),
       ne(schema.messages.senderId, userId),
       eq(schema.messages.seen, false)
     ));

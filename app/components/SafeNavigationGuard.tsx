@@ -146,12 +146,80 @@ function SafeNavigationGuardInner() {
         return;
       }
 
-      // Rule 2: Prevent navigating to a different page while one is already pending (if lock is enabled)
-      if (navLockEnabled && pendingUrl.current && pendingUrl.current !== href) {
-        console.log(`[SafeNavigation] Blocked navigation to "${href}" because transition to "${pendingUrl.current}" is in progress.`);
+      // Rule 3: Stuck Transition Escape Hatch
+      // If the user clicks the SAME link again after 1.2 seconds of it being pending/stuck,
+      // trigger an active programmatic override to bypass Next.js internal router freezes.
+      if (pendingUrl.current === href && timeSinceLastNav > 1200) {
+        console.warn(`[SafeNavigation] Transition to "${href}" is stuck. Triggering escape hatch programmatic redirect.`);
+        
+        // Reset states
+        pendingUrl.current = null;
+        setNavigating(false);
+        setProgress(0);
+        if (progressTimer.current) clearInterval(progressTimer.current);
+        if (timeoutTimer.current) clearTimeout(timeoutTimer.current);
+        
+        // Dispatch navigation reset event to clear optimistic UI highlights
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('proxy-press-navigation-reset'));
+        }
+
+        // Programmatic redirect to guarantee the page opens
+        try {
+          router.replace(href);
+        } catch {
+          window.location.href = href;
+        }
+
         event.preventDefault();
         event.stopPropagation();
         return;
+      }
+
+      // Rule 2: Allow seamless override of pending navigations instead of hard-blocking
+      if (navLockEnabled && pendingUrl.current && pendingUrl.current !== href) {
+        console.log(`[SafeNavigation] Overriding pending navigation to "${pendingUrl.current}" with new destination: "${href}"`);
+        pendingUrl.current = href;
+        lastNavTime.current = now;
+        
+        // Reset progress animation to restart for the new route
+        if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
+        if (progressTimer.current) clearInterval(progressTimer.current);
+        if (timeoutTimer.current) clearTimeout(timeoutTimer.current);
+        
+        setNavigating(true);
+        setProgress(10);
+        
+        progressTimer.current = setInterval(() => {
+          setProgress((prev) => {
+            if (prev >= 90) return 90;
+            const increment = Math.max(1, (90 - prev) * 0.15);
+            return Math.min(90, prev + increment);
+          });
+        }, 100);
+
+        if (navTimeout > 0) {
+          timeoutTimer.current = setTimeout(() => {
+            console.warn(`[SafeNavigation] Page transition to "${href}" timed out after ${navTimeout}ms. Resetting lock.`);
+            setProgress(100);
+            
+            if (progressTimer.current) {
+              clearInterval(progressTimer.current);
+              progressTimer.current = null;
+            }
+
+            fadeOutTimer.current = setTimeout(() => {
+              setNavigating(false);
+              setProgress(0);
+              pendingUrl.current = null;
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new Event('proxy-press-navigation-reset'));
+              }
+            }, 300);
+          }, navTimeout);
+        }
+        
+        return; // Allow the click to proceed
       }
 
       // Allow navigation: Update lock states
@@ -194,6 +262,9 @@ function SafeNavigationGuardInner() {
             setNavigating(false);
             setProgress(0);
             pendingUrl.current = null;
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event('proxy-press-navigation-reset'));
+            }
           }, 300);
         }, navTimeout);
       }

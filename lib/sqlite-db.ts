@@ -13,27 +13,32 @@ class SQLiteService {
       // 1. Get or Create a secure passphrase for this device
       const passphrase = await this.getOrCreatePassphrase();
 
-      // 2. Create the connection with encryption enabled
+      // 2. Create the connection with encryption enabled (Only on native platforms)
+      const encrypted = this.isNative;
       const connection = await this.sqlite.createConnection(
         'proxypress_local', 
-        true, // encrypted: true
-        'secret', // mode: secret
+        encrypted, 
+        encrypted ? 'secret' : 'no-encryption', 
         1, 
         false
       );
       this.db = connection;
 
-      // 3. Open the database (Passphrase is required here)
+      // 3. Open the database
       await this.db.open();
       
       // 4. Set the encryption passphrase
-      // This "locks" the database with your secret key
-      await (this.db as any).setEncryptionSecret(passphrase);
+      // This "locks" the database with your secret key (Only on native platforms)
+      if (encrypted) {
+        await (this.db as any).setEncryptionSecret(passphrase);
+        console.log('[SQLite] Database initialized with SQLCipher Encryption. 🔒');
+      } else {
+        console.log('[SQLite] Database initialized in standard mode (Web Fallback). 📂');
+      }
 
       // 5. Create Tables
       await this.createTables();
 
-      console.log('[SQLite] Database initialized with SQLCipher Encryption. 🔒');
       return this.db;
     } catch (err) {
       console.error('[SQLite] Encryption/Initialization error:', err);

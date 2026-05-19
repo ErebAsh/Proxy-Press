@@ -4,30 +4,44 @@ import { getExploreDataAction, getCurrentUser, getFollowing } from '@/lib/action
 export const dynamic = 'force-dynamic';
 
 export default async function ExplorePage() {
-  let initialData = null;
-  
-  try {
-    // Fetch data on the server in parallel
-    const [data, user] = await Promise.all([
-      getExploreDataAction(),
-      getCurrentUser(),
-    ]);
-    
-    let followingIds: string[] = [];
-    if (user) {
-      const following = await getFollowing(user.id).catch(() => []);
-      followingIds = (following || []).map((u: any) => u.id);
-    }
-    
-    initialData = {
-      trendingPosts: data?.trendingPosts || [],
-      suggestedUsers: data?.suggestedUsers || [],
-      currentUserId: user?.id || null,
-      followingIds
-    };
-  } catch (err) {
-    console.error('Failed to fetch explore data on server:', err);
-  }
+  // ⚡ Promise Pipeline: kick off server data queries concurrently, do not await!
+  const exploreDataPromise = getExploreDataAction().catch(err => {
+    console.error("Explore page data fetch failure:", err);
+    return null;
+  });
 
-  return <ExploreClient initialData={initialData} />;
+  const currentUserPromise = getCurrentUser().catch(err => {
+    console.error("Explore page user fetch failure:", err);
+    return null;
+  });
+
+  const initialDataPromise = Promise.all([exploreDataPromise, currentUserPromise])
+    .then(async ([data, user]) => {
+      let followingIds: string[] = [];
+      if (user) {
+        try {
+          const following = await getFollowing(user.id);
+          followingIds = (following || []).map((u: any) => u.id);
+        } catch (e) {
+          console.error("Explore page following fetch failure:", e);
+        }
+      }
+      return {
+        trendingPosts: data?.trendingPosts || [],
+        suggestedUsers: data?.suggestedUsers || [],
+        currentUserId: user?.id || null,
+        followingIds
+      };
+    })
+    .catch(err => {
+      console.error("Explore page pipelining failure:", err);
+      return {
+        trendingPosts: [],
+        suggestedUsers: [],
+        currentUserId: null,
+        followingIds: []
+      };
+    });
+
+  return <ExploreClient initialDataPromise={initialDataPromise} />;
 }

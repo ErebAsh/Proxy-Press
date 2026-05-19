@@ -15,10 +15,10 @@ const categoryColors: Record<string, string> = {
 };
 
 interface ExploreClientProps {
-  initialData?: any;
+  initialDataPromise?: Promise<any>;
 }
 
-export default function ExploreClient({ initialData }: ExploreClientProps) {
+export default function ExploreClient({ initialDataPromise }: ExploreClientProps) {
   const [activeCategory, setActiveCategory] = useState<Category | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -38,29 +38,13 @@ export default function ExploreClient({ initialData }: ExploreClientProps) {
 
   // Load initial data / background refresh
   useEffect(() => {
-    async function loadInitial() {
-      // 1. If we have initialData from the server, load it instantly!
-      if (initialData && initialData.trendingPosts && initialData.trendingPosts.length > 0) {
-        console.log('[ExploreClient] Loading server-provided initialData');
-        const adapted = initialData.trendingPosts.map((p: any) => ({
-          ...p,
-          imageUrl: p.localImageUrl || p.imageUrl
-        }));
-        staggerPosts(adapted);
-        setSuggestedUsers(initialData.suggestedUsers || []);
-        setCurrentUserId(initialData.currentUserId || null);
-        setMyFollowingIds(new Set(initialData.followingIds || []));
-        setIsLoading(false);
-        
-        // Trigger background SQLite sync
-        OfflineManager.syncExploreFeed();
-        return;
-      }
+    let active = true;
 
-      // 2. Try SQLite Offline Feed First
+    async function loadInitial() {
+      // 1. Try SQLite Offline Feed First for immediate rendering
       try {
         const offlineExplore = await OfflineManager.getOfflineExploreFeed();
-        if (offlineExplore && offlineExplore.length > 0) {
+        if (active && offlineExplore && offlineExplore.length > 0) {
           console.log('[Offline] SQLite Explore Feed loaded');
           const adapted = offlineExplore.map((p: any) => ({
             ...p,
@@ -73,13 +57,48 @@ export default function ExploreClient({ initialData }: ExploreClientProps) {
         console.error('Offline SQLite load failed:', e);
       }
 
-      // 3. Fallback: Refetch from database
+      // 2. Resolve Server-Side Promise Pipeline if present
+      if (initialDataPromise) {
+        try {
+          const data = await initialDataPromise;
+          if (active && data) {
+            console.log('[ExploreClient] Hydrating with pipeline-provided data');
+            if (data.trendingPosts && data.trendingPosts.length > 0) {
+              const adapted = data.trendingPosts.map((p: any) => ({
+                ...p,
+                imageUrl: p.localImageUrl || p.imageUrl
+              }));
+              staggerPosts(adapted);
+            }
+            if (data.suggestedUsers) {
+              setSuggestedUsers(data.suggestedUsers);
+            }
+            if (data.currentUserId) {
+              setCurrentUserId(data.currentUserId);
+            }
+            if (data.followingIds) {
+              setMyFollowingIds(new Set(data.followingIds));
+            }
+            setIsLoading(false);
+            
+            // Trigger background SQLite sync
+            OfflineManager.syncExploreFeed();
+            return;
+          }
+        } catch (err) {
+          console.error('[ExploreClient] Promise Pipeline failure:', err);
+        }
+      }
+
+      // 3. Fallback: Standard Client-Side database fetch
       try {
         const [data, user] = await Promise.all([
           getExploreDataAction(),
           getCurrentUser()
         ]);
         
+        if (!active) return;
+
         if (data && data.trendingPosts) {
           const adapted = data.trendingPosts.map((p: any) => ({
             ...p,
@@ -100,11 +119,15 @@ export default function ExploreClient({ initialData }: ExploreClientProps) {
       } catch (err) {
         console.error('Failed to load explore data on client:', err);
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     }
     loadInitial();
-  }, [initialData]);
+
+    return () => {
+      active = false;
+    };
+  }, [initialDataPromise]);
 
   // Debounced search
   useEffect(() => {

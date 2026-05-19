@@ -36,6 +36,7 @@ html, body {
 #main-content {
   min-height: 100%;
   overflow-y: auto;
+  overflow-x: hidden; /* Clip horizontal overflow during slide transitions */
   -webkit-overflow-scrolling: touch;
   /* Use safe area if available, but always keep at least 44px for safety to clear the status bar */
   padding-top: max(var(--safe-area-inset-top), 44px);
@@ -177,6 +178,7 @@ body {
   display: flex;
   min-height: 100vh;
   background-color: var(--bg);
+  overflow-x: hidden; /* Prevent horizontal layout overflow during GPU slide transitions */
 }
 
 .left-sidebar {
@@ -202,6 +204,7 @@ body {
   justify-content: center;
   padding: 16px 24px;
   overflow-y: auto;
+  overflow-x: hidden; /* Clip horizontal overflow during slide transitions */
   min-height: 100vh;
 }
 
@@ -1324,5 +1327,43 @@ body {
   color: var(--text-primary);
 }
 
-@keyframes page-enter { from { opacity: 0; transform: scale(0.98) translateY(8px); filter: blur(4px); } to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } } .animate-page-enter { animation: page-enter 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; will-change: transform, opacity, filter; } .no-tap-delay { touch-action: manipulation; }
+@keyframes page-enter {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-page-enter {
+  animation: page-enter 320ms cubic-bezier(0.32, 0.94, 0.6, 1) forwards;
+  will-change: transform;
+}
+
+.no-tap-delay { touch-action: manipulation; }
 .page-wrapper { width: 100%; display: flex; flex-direction: column; align-items: center; min-height: 100%; } .msg-chat-panel, .msg-list-panel { width: 100% !important; } @media (max-width: 768px) { .main-content { padding: 0 !important; } .page-wrapper { align-items: stretch; } }
+
+/* ─────────────────────────────────────────
+   PREMIUM SKELETON SHIMMER UTILITY
+   ───────────────────────────────────────── */
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--border) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-load 1.5s infinite linear;
+}
+
+@keyframes skeleton-load {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
