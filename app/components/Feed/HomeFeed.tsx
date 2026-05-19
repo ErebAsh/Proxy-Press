@@ -23,6 +23,44 @@ export default function HomeFeed({ initialPostsPromise }: HomeFeedProps) {
   const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [posts, setPosts] = useState<any[]>(globalInMemoryPosts);
+  const staggerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const staggerPosts = (freshPosts: any[]) => {
+    if (!freshPosts || freshPosts.length === 0) return;
+    
+    // Set first post instantly
+    setPosts([freshPosts[0]]);
+    
+    if (staggerIntervalRef.current) {
+      clearInterval(staggerIntervalRef.current);
+    }
+    
+    let index = 1;
+    staggerIntervalRef.current = setInterval(() => {
+      if (index < freshPosts.length) {
+        setPosts(prev => {
+          if (prev.some(p => p.id === freshPosts[index].id)) {
+            index++;
+            return prev;
+          }
+          return [...prev, freshPosts[index]];
+        });
+        index++;
+      } else {
+        if (staggerIntervalRef.current) {
+          clearInterval(staggerIntervalRef.current);
+        }
+      }
+    }, 100);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (staggerIntervalRef.current) {
+        clearInterval(staggerIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Auto-close menu after 5 seconds of inactivity
   useEffect(() => {
@@ -86,7 +124,7 @@ export default function HomeFeed({ initialPostsPromise }: HomeFeedProps) {
           author: { name: p.authorName, avatar: p.authorAvatar },
           timeAgo: p.publishedAt ? formatTimeAgo(p.publishedAt) : 'Recently',
         }));
-        setPosts(adapted);
+        staggerPosts(adapted);
         setIsLoading(false);
         globalInMemoryPosts = adapted;
         globalInMemoryLoaded = true;
@@ -99,7 +137,7 @@ export default function HomeFeed({ initialPostsPromise }: HomeFeedProps) {
       const cached = await OfflineManager.loadData<any>('home_feed_cache');
       if (cached && cached.posts && cached.posts.length > 0) {
         console.log('[Offline] Legacy cache load');
-        setPosts(cached.posts);
+        staggerPosts(cached.posts);
         setIsLoading(false);
       }
       cacheLoaded.current = true;
@@ -129,22 +167,19 @@ export default function HomeFeed({ initialPostsPromise }: HomeFeedProps) {
             isLiked: Array.isArray(p.likesList) ? p.likesList.some((l: any) => l.userId === currentUserId) : false,
           }));
           
-          setPosts(prevPosts => {
-            // Check if new content is available by comparing first post ID or length
-            const isNewContentAvailable = 
-              prevPosts.length === 0 || 
-              (adaptedPosts.length > 0 && prevPosts[0].id !== adaptedPosts[0].id) ||
-              prevPosts.length !== adaptedPosts.length;
-            
-            if (isNewContentAvailable) {
-              console.log('[Background] New content found, updating feed.');
-              globalInMemoryPosts = adaptedPosts;
-              return adaptedPosts;
-            }
-            
+          // Check if new content is available by comparing first post ID or length
+          const isNewContentAvailable = 
+            globalInMemoryPosts.length === 0 || 
+            (adaptedPosts.length > 0 && globalInMemoryPosts[0]?.id !== adaptedPosts[0].id) ||
+            globalInMemoryPosts.length !== adaptedPosts.length;
+          
+          if (isNewContentAvailable) {
+            console.log('[Background] New content found, updating feed.');
+            globalInMemoryPosts = adaptedPosts;
+            staggerPosts(adaptedPosts);
+          } else {
             console.log('[Background] No new content, keeping cached view.');
-            return prevPosts;
-          });
+          }
           
           globalInMemoryLoaded = true;
           
@@ -240,7 +275,8 @@ export default function HomeFeed({ initialPostsPromise }: HomeFeedProps) {
           author: { name: p.authorName, avatar: p.authorAvatar },
           timeAgo: p.publishedAt ? formatTimeAgo(p.publishedAt) : 'Recently',
         }));
-        setPosts(adapted);
+        globalInMemoryPosts = adapted;
+        staggerPosts(adapted);
       }
     } catch (err) {
       console.error('Refresh failed', err);
