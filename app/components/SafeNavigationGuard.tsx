@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
-export default function SafeNavigationGuard() {
+function SafeNavigationGuardInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   
@@ -155,5 +155,13 @@ export default function SafeNavigationGuard() {
         <div className="safe-nav-glow" />
       </div>
     </>
+  );
+}
+
+export default function SafeNavigationGuard() {
+  return (
+    <Suspense fallback={null}>
+      <SafeNavigationGuardInner />
+    </Suspense>
   );
 }
