@@ -15,11 +15,10 @@ const categoryColors: Record<string, string> = {
 };
 
 interface ExploreClientProps {
-  exploreDataPromise: Promise<any>;
-  currentUserPromise: Promise<any>;
+  initialData?: any;
 }
 
-export default function ExploreClient({ exploreDataPromise, currentUserPromise }: ExploreClientProps) {
+export default function ExploreClient({ initialData }: ExploreClientProps) {
   const [activeCategory, setActiveCategory] = useState<Category | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -76,23 +75,45 @@ export default function ExploreClient({ exploreDataPromise, currentUserPromise }
   // Load initial data / background refresh
   useEffect(() => {
     async function loadInitial() {
-      // 1. Try SQLite Offline Feed First
-      const offlineExplore = await OfflineManager.getOfflineExploreFeed();
-      if (offlineExplore && offlineExplore.length > 0) {
-        console.log('[Offline] SQLite Explore Feed loaded');
-        const adapted = offlineExplore.map((p: any) => ({
+      // 1. If we have initialData from the server, load it instantly!
+      if (initialData && initialData.trendingPosts && initialData.trendingPosts.length > 0) {
+        console.log('[ExploreClient] Loading server-provided initialData');
+        const adapted = initialData.trendingPosts.map((p: any) => ({
           ...p,
           imageUrl: p.localImageUrl || p.imageUrl
         }));
         staggerPosts(adapted);
+        setSuggestedUsers(initialData.suggestedUsers || []);
+        setCurrentUserId(initialData.currentUserId || null);
+        setMyFollowingIds(new Set(initialData.followingIds || []));
         setIsLoading(false);
+        
+        // Trigger background SQLite sync
+        OfflineManager.syncExploreFeed();
+        return;
       }
 
+      // 2. Try SQLite Offline Feed First
       try {
-        // Await the pipeline promises concurrently
+        const offlineExplore = await OfflineManager.getOfflineExploreFeed();
+        if (offlineExplore && offlineExplore.length > 0) {
+          console.log('[Offline] SQLite Explore Feed loaded');
+          const adapted = offlineExplore.map((p: any) => ({
+            ...p,
+            imageUrl: p.localImageUrl || p.imageUrl
+          }));
+          staggerPosts(adapted);
+          setIsLoading(false);
+        }
+      } catch (e) {
+        console.error('Offline SQLite load failed:', e);
+      }
+
+      // 3. Fallback: Refetch from database
+      try {
         const [data, user] = await Promise.all([
-          exploreDataPromise,
-          currentUserPromise
+          getExploreDataAction(),
+          getCurrentUser()
         ]);
         
         if (data && data.trendingPosts) {
@@ -106,20 +127,20 @@ export default function ExploreClient({ exploreDataPromise, currentUserPromise }
         
         if (user) {
           setCurrentUserId(user.id);
-          const following = await getFollowing(user.id);
-          setMyFollowingIds(new Set(following.map((u: any) => u.id)));
+          const following = await getFollowing(user.id).catch(() => []);
+          setMyFollowingIds(new Set((following || []).map((u: any) => u.id)));
           
           // Background sync to keep SQLite fresh
           OfflineManager.syncExploreFeed();
         }
       } catch (err) {
-        console.error('Failed to load explore data:', err);
+        console.error('Failed to load explore data on client:', err);
       } finally {
         setIsLoading(false);
       }
     }
     loadInitial();
-  }, [exploreDataPromise, currentUserPromise]);
+  }, [initialData]);
 
   // Debounced search
   useEffect(() => {

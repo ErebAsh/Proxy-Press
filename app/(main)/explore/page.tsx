@@ -1,17 +1,33 @@
 import ExploreClient from './ExploreClient';
-import { getExploreDataAction, getCurrentUser } from '@/lib/actions';
+import { getExploreDataAction, getCurrentUser, getFollowing } from '@/lib/actions';
 
 export const dynamic = 'force-dynamic';
 
-export default function ExplorePage() {
-  // ⚡ Promise Pipeline: kick off queries on server instantly, preventing blocking HTML streaming!
-  const exploreDataPromise = getExploreDataAction();
-  const currentUserPromise = getCurrentUser();
+export default async function ExplorePage() {
+  let initialData = null;
+  
+  try {
+    // Fetch data on the server in parallel
+    const [data, user] = await Promise.all([
+      getExploreDataAction(),
+      getCurrentUser(),
+    ]);
+    
+    let followingIds: string[] = [];
+    if (user) {
+      const following = await getFollowing(user.id).catch(() => []);
+      followingIds = (following || []).map((u: any) => u.id);
+    }
+    
+    initialData = {
+      trendingPosts: data?.trendingPosts || [],
+      suggestedUsers: data?.suggestedUsers || [],
+      currentUserId: user?.id || null,
+      followingIds
+    };
+  } catch (err) {
+    console.error('Failed to fetch explore data on server:', err);
+  }
 
-  return (
-    <ExploreClient
-      exploreDataPromise={exploreDataPromise}
-      currentUserPromise={currentUserPromise}
-    />
-  );
+  return <ExploreClient initialData={initialData} />;
 }
