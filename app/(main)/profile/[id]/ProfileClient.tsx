@@ -23,23 +23,22 @@ const REPORT_REASONS = [
   'Other',
 ];
 
-export default function ProfileClient({ id, initialData }: { id: string; initialData: any }) {
+interface ProfileClientProps {
+  id: string;
+  profilePromise: Promise<any>;
+}
+
+export default function ProfileClient({ id, profilePromise }: ProfileClientProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
 
   // Use a ref to track if we've already loaded from cache to avoid infinite loops
   const cacheLoaded = useRef(false);
 
-  const [isFollowing, setIsFollowing] = useState(initialData?.isFollowing || false);
+  const [isFollowing, setIsFollowing] = useState(false);
   const { currentUserId, refreshIdentity, isLoading: isIdentityLoading } = useIdentity();
 
   const [user, setUser] = useState<any>(() => {
-    if (initialData?.user) return {
-      ...initialData.user,
-      postsCount: initialData.posts?.length || 0,
-      statusDisplay: initialData.statusDisplay || null
-    };
-    
     if (typeof window !== 'undefined') {
       // 1. Check for Sync Metadata Mirror (INSTANT)
       const metaCache = localStorage.getItem(`pp_meta_${id}`);
@@ -71,7 +70,6 @@ export default function ProfileClient({ id, initialData }: { id: string; initial
   const isMe = currentUserId && (id === currentUserId || (user && currentUserId === user.id));
   
   const [userPosts, setUserPosts] = useState<any[]>(() => {
-    if (initialData?.posts) return initialData.posts;
     if (typeof window !== 'undefined') {
       // 1. Try Sync Grid Mirror (INSTANT)
       const gridCache = localStorage.getItem(`pp_grid_${id}`);
@@ -92,7 +90,6 @@ export default function ProfileClient({ id, initialData }: { id: string; initial
   const [savedPosts, setSavedPosts] = useState<any[]>([]);
   
   const [followersCount, setFollowersCount] = useState<number>(() => {
-    if (initialData?.followCounts) return initialData.followCounts.followers;
     if (typeof window !== 'undefined') {
       const meta = localStorage.getItem(`pp_meta_${id}`);
       if (meta) return JSON.parse(meta).followersCount || 0;
@@ -109,7 +106,6 @@ export default function ProfileClient({ id, initialData }: { id: string; initial
   });
 
   const [followingCount, setFollowingCount] = useState<number>(() => {
-    if (initialData?.followCounts) return initialData.followCounts.following;
     if (typeof window !== 'undefined') {
       const meta = localStorage.getItem(`pp_meta_${id}`);
       if (meta) return JSON.parse(meta).followingCount || 0;
@@ -125,16 +121,55 @@ export default function ProfileClient({ id, initialData }: { id: string; initial
     return 0;
   });
 
-  const [isRequested, setIsRequested] = useState(initialData?.isRequested || false);
+  const [isRequested, setIsRequested] = useState(false);
   
   const [isLoading, setIsLoading] = useState(() => {
-    if (initialData) return false;
     // If we have user data from ANY cache (Local or Shared), we can show the UI immediately
     if (user) return false;
     return true;
   });
-  const [isBlocked, setIsBlocked] = useState(initialData?.isBlocked || false);
-  const [isMuted, setIsMuted] = useState(initialData?.isMuted || false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+
+  const staggerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const staggerPosts = (freshPosts: any[]) => {
+    if (!freshPosts || freshPosts.length === 0) return;
+    
+    setUserPosts([freshPosts[0]]);
+    
+    if (staggerIntervalRef.current) {
+      clearInterval(staggerIntervalRef.current);
+    }
+    
+    let index = 1;
+    staggerIntervalRef.current = setInterval(() => {
+      if (index < freshPosts.length) {
+        const nextPost = freshPosts[index];
+        if (nextPost) {
+          setUserPosts(prev => {
+            if (prev.some(p => p.id === nextPost.id)) {
+              return prev;
+            }
+            return [...prev, nextPost];
+          });
+        }
+        index++;
+      } else {
+        if (staggerIntervalRef.current) {
+          clearInterval(staggerIntervalRef.current);
+        }
+      }
+    }, 85);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (staggerIntervalRef.current) {
+        clearInterval(staggerIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Settings Pre-warming: If this is my profile, keep my global user data fresh for Settings
   useEffect(() => {
@@ -152,7 +187,7 @@ export default function ProfileClient({ id, initialData }: { id: string; initial
       const offlineProfile = await OfflineManager.getOfflineProfile();
       const offlinePosts = await OfflineManager.getOfflinePosts();
 
-      if (offlineProfile && !initialData) {
+      if (offlineProfile) {
         console.log(`[Offline] SQLite Profile loaded for: ${id}`);
         
         // Use the local cached images if available
@@ -168,7 +203,7 @@ export default function ProfileClient({ id, initialData }: { id: string; initial
         }));
 
         setUser(userToSet);
-        setUserPosts(postsToSet);
+        staggerPosts(postsToSet);
         
         // Mirror metadata & top posts for instant sync on next visit
         localStorage.setItem(`pp_meta_${id}`, JSON.stringify({
@@ -185,10 +220,10 @@ export default function ProfileClient({ id, initialData }: { id: string; initial
 
       // 2. Fallback to Preferences/LocalStorage (Legacy)
       const cached = await OfflineManager.loadData<any>(`profile_cache_${id}`);
-      if (cached && !initialData) {
+      if (cached) {
         console.log(`[Offline] Legacy Cache load for: ${id}`);
         setUser(cached.user);
-        setUserPosts(cached.posts);
+        staggerPosts(cached.posts || []);
         setIsFollowing(cached.isFollowing);
         setFollowersCount(cached.followCounts?.followers || 0);
         setFollowingCount(cached.followCounts?.following || 0);
@@ -199,10 +234,10 @@ export default function ProfileClient({ id, initialData }: { id: string; initial
 
     loadCache();
 
-    // Background refresh if data is from cache or we want to ensure freshness
+    // Background refresh from server promise pipeline
     async function refreshProfile() {
       try {
-        const freshData = await getProfileData(id);
+        const freshData = await profilePromise;
         if (freshData) {
           const updatedUser = {
             ...freshData.user,
@@ -222,7 +257,9 @@ export default function ProfileClient({ id, initialData }: { id: string; initial
               localStorage.setItem(`pp_grid_${id}`, JSON.stringify(freshData.posts.slice(0, 6)));
             }
           }
-          setUserPosts(freshData.posts || []);
+          if (freshData.posts) {
+            staggerPosts(freshData.posts);
+          }
           setIsFollowing(freshData.isFollowing || false);
           setFollowersCount(freshData.followCounts?.followers || 0);
           setFollowingCount(freshData.followCounts?.following || 0);
@@ -261,7 +298,7 @@ export default function ProfileClient({ id, initialData }: { id: string; initial
     }
 
     refreshProfile();
-  }, [id, initialData]);
+  }, [id, profilePromise]);
 
   // Manual cache save on user updates
   useEffect(() => {

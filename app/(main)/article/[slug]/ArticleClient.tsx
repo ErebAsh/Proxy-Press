@@ -13,7 +13,13 @@ const categoryColors: Record<string, string> = {
   Academic: '#2563EB', Clubs: '#EC4899', Exams: '#EF4444',
 };
 
-export default function ArticleClient({ id }: { id: string }) {
+interface ArticleClientProps {
+  id: string;
+  postDetailPromise: Promise<any>;
+  currentUserPromise: Promise<any>;
+}
+
+export default function ArticleClient({ id, postDetailPromise, currentUserPromise }: ArticleClientProps) {
   const router = useRouter();
   const [post, setPost] = useState<any>(null);
   const [related, setRelated] = useState<any[]>([]);
@@ -31,6 +37,47 @@ export default function ArticleClient({ id }: { id: string }) {
   const [canComment, setCanComment] = useState(true);
   const [scrolledPastTitle, setScrolledPastTitle] = useState(false);
   const headlineRef = useRef<HTMLHeadingElement>(null);
+
+  const staggerRelatedIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const staggerRelated = (freshRelated: any[]) => {
+    if (!freshRelated || freshRelated.length === 0) return;
+    
+    // Set first related post instantly
+    setRelated([freshRelated[0]]);
+    
+    if (staggerRelatedIntervalRef.current) {
+      clearInterval(staggerRelatedIntervalRef.current);
+    }
+    
+    let index = 1;
+    staggerRelatedIntervalRef.current = setInterval(() => {
+      if (index < freshRelated.length) {
+        const nextPost = freshRelated[index];
+        if (nextPost) {
+          setRelated(prev => {
+            if (prev.some(p => p.id === nextPost.id)) {
+              return prev;
+            }
+            return [...prev, nextPost];
+          });
+        }
+        index++;
+      } else {
+        if (staggerRelatedIntervalRef.current) {
+          clearInterval(staggerRelatedIntervalRef.current);
+        }
+      }
+    }, 100);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (staggerRelatedIntervalRef.current) {
+        clearInterval(staggerRelatedIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Track scroll to show/hide title in the sticky header
   useEffect(() => {
@@ -52,8 +99,8 @@ export default function ArticleClient({ id }: { id: string }) {
     async function loadPost() {
       try {
         const [data, user] = await Promise.all([
-          getPostDetail(id),
-          getCurrentUser()
+          postDetailPromise,
+          currentUserPromise
         ]);
         
         setCurrentUser(user);
@@ -76,10 +123,11 @@ export default function ArticleClient({ id }: { id: string }) {
           setCanComment(data.canComment ?? true);
           
           if (data.related) {
-            setRelated(data.related.map((rp: any) => ({
+            const adaptedRelated = data.related.map((rp: any) => ({
               ...rp,
               timeAgo: rp.publishedAt ? formatTimeAgo(rp.publishedAt) : 'Recently'
-            })));
+            }));
+            staggerRelated(adaptedRelated);
           }
 
           if (data.post.commentsList) {
@@ -130,7 +178,7 @@ export default function ArticleClient({ id }: { id: string }) {
       }
     }
     loadPost();
-  }, [id]);
+  }, [id, postDetailPromise, currentUserPromise]);
 
   useEffect(() => {
     if (post) {

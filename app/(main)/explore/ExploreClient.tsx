@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { categories } from '@/lib/data';
 import type { Category } from '@/lib/data';
@@ -14,29 +14,69 @@ const categoryColors: Record<string, string> = {
   News: '#6366F1', "College Daily Update": '#14B8A6', Others: '#94A3B8',
 };
 
-export default function ExploreClient({ initialData }: { initialData: any }) {
+interface ExploreClientProps {
+  exploreDataPromise: Promise<any>;
+  currentUserPromise: Promise<any>;
+}
+
+export default function ExploreClient({ exploreDataPromise, currentUserPromise }: ExploreClientProps) {
   const [activeCategory, setActiveCategory] = useState<Category | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [isLoading, setIsLoading] = useState(!initialData);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Results
-  const [trendingPosts, setTrendingPosts] = useState<any[]>(initialData?.trendingPosts || []);
-  const [suggestedUsers, setSuggestedUsers] = useState<any[]>(initialData?.suggestedUsers || []);
+  const [trendingPosts, setTrendingPosts] = useState<any[]>([]);
+  const [suggestedUsers, setSuggestedUsers] = useState<any[]>([]);
   const [searchResults, setSearchResults] = useState<{ users: any[], posts: any[] }>({ users: [], posts: [] });
-  const [myFollowingIds, setMyFollowingIds] = useState<Set<string>>(new Set(initialData?.followingIds || []));
-  const [currentUserId, setCurrentUserId] = useState<string | null>(initialData?.currentUserId || null);
+  const [myFollowingIds, setMyFollowingIds] = useState<Set<string>>(new Set());
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  const staggerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const staggerPosts = (freshPosts: any[]) => {
+    if (!freshPosts || freshPosts.length === 0) return;
+    
+    // Set first post instantly
+    setTrendingPosts([freshPosts[0]]);
+    
+    if (staggerIntervalRef.current) {
+      clearInterval(staggerIntervalRef.current);
+    }
+    
+    let index = 1;
+    staggerIntervalRef.current = setInterval(() => {
+      if (index < freshPosts.length) {
+        const nextPost = freshPosts[index];
+        if (nextPost) {
+          setTrendingPosts(prev => {
+            if (prev.some(p => p.id === nextPost.id)) {
+              return prev;
+            }
+            return [...prev, nextPost];
+          });
+        }
+        index++;
+      } else {
+        if (staggerIntervalRef.current) {
+          clearInterval(staggerIntervalRef.current);
+        }
+      }
+    }, 100);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (staggerIntervalRef.current) {
+        clearInterval(staggerIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Load initial data / background refresh
   useEffect(() => {
     async function loadInitial() {
-      // If we HAVE initial data from the server, we can skip the initial fetch!
-      if (initialData) {
-        setIsLoading(false);
-        return;
-      }
-
-      // If no server data, try SQLite Offline Feed First
+      // 1. Try SQLite Offline Feed First
       const offlineExplore = await OfflineManager.getOfflineExploreFeed();
       if (offlineExplore && offlineExplore.length > 0) {
         console.log('[Offline] SQLite Explore Feed loaded');
@@ -44,17 +84,25 @@ export default function ExploreClient({ initialData }: { initialData: any }) {
           ...p,
           imageUrl: p.localImageUrl || p.imageUrl
         }));
-        setTrendingPosts(adapted);
+        staggerPosts(adapted);
         setIsLoading(false);
       }
 
       try {
+        // Await the pipeline promises concurrently
         const [data, user] = await Promise.all([
-          getExploreDataAction(),
-          getCurrentUser(),
+          exploreDataPromise,
+          currentUserPromise,
         ]);
-        setTrendingPosts(data.trendingPosts);
-        setSuggestedUsers(data.suggestedUsers);
+        
+        if (data && data.trendingPosts) {
+          const adapted = data.trendingPosts.map((p: any) => ({
+            ...p,
+            imageUrl: p.localImageUrl || p.imageUrl
+          }));
+          staggerPosts(adapted);
+          setSuggestedUsers(data.suggestedUsers || []);
+        }
         
         if (user) {
           setCurrentUserId(user.id);
@@ -71,7 +119,7 @@ export default function ExploreClient({ initialData }: { initialData: any }) {
       }
     }
     loadInitial();
-  }, [initialData]);
+  }, [exploreDataPromise, currentUserPromise]);
 
   // Debounced search
   useEffect(() => {

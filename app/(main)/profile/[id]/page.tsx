@@ -1,11 +1,13 @@
 import { getProfileData } from '@/lib/actions';
 import ProfileClient from './ProfileClient';
-import { notFound } from 'next/navigation';
+
+export const dynamic = 'force-dynamic';
 
 export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   
-  // We remove the blocking 'await' here to make the page mount INSTANTLY.
-  // ProfileClient handles its own caching and background refreshing.
-  return <ProfileClient id={id} initialData={null} />;
+  // ⚡ Promise Pipeline: kick off user profile details query concurrently on server, do not await!
+  const profilePromise = getProfileData(id);
+
+  return <ProfileClient id={id} profilePromise={profilePromise} />;
 }
