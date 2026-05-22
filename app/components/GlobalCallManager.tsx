@@ -177,16 +177,23 @@ export default function GlobalCallManager() {
       });
     };
 
+    if (!currentUserId || currentUserId === 'me') return;
+
     window.addEventListener('native-call-accepted', handleNativeCallAccepted);
 
-    // B. Check for Cold Start Accepted Calls (app was fully closed when Accept was clicked)
+    // B. Check for Cold Start/Warm Start Accepted Calls via Native bridge
     const checkColdStartCall = () => {
       try {
         if (typeof window !== 'undefined' && (window as any).AndroidCallBridge) {
           const pendingCallStr = (window as any).AndroidCallBridge.getPendingAcceptedCall();
           if (pendingCallStr) {
             const pendingCall = JSON.parse(pendingCallStr);
-            console.log('[Global Call] Cold start accepted call loaded from Native bridge:', pendingCall);
+            console.log('[Global Call] Accepted call loaded from Native bridge:', pendingCall);
+
+            // Clear the pending call on the native side only AFTER we successfully read it
+            if ((window as any).AndroidCallBridge.clearPendingAcceptedCall) {
+              (window as any).AndroidCallBridge.clearPendingAcceptedCall();
+            }
 
             // Notify caller
             fetch('/api/messages/call', {
@@ -196,7 +203,7 @@ export default function GlobalCallManager() {
                 targetUserId: pendingCall.callerId,
                 event: 'call-accepted'
               })
-            }).catch(err => console.error('[Global Call] Error sending cold-start accepted notification:', err));
+            }).catch(err => console.error('[Global Call] Error sending accepted notification:', err));
 
             setActiveCall({
               type: pendingCall.callType === 'video' ? 'video' : 'voice',
@@ -211,19 +218,31 @@ export default function GlobalCallManager() {
           }
         }
       } catch (err) {
-        console.error('[Global Call] Cold start checking error:', err);
+        console.error('[Global Call] Cold/Warm start checking error:', err);
       }
     };
 
     checkColdStartCall();
-    // Periodically poll during bootstrap to catch bridge instantiation
-    const timer = setInterval(checkColdStartCall, 1500);
+    // Periodically poll to catch any bridge instantiation or delayed intents
+    const timer = setInterval(checkColdStartCall, 800);
+
+    // Fast-track check when app receives focus or is brought to foreground
+    const handleFocusOrVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        checkColdStartCall();
+      }
+    };
+
+    window.addEventListener('focus', checkColdStartCall);
+    document.addEventListener('visibilitychange', handleFocusOrVisibility);
 
     return () => {
       window.removeEventListener('native-call-accepted', handleNativeCallAccepted);
+      window.removeEventListener('focus', checkColdStartCall);
+      document.removeEventListener('visibilitychange', handleFocusOrVisibility);
       clearInterval(timer);
     };
-  }, []);
+  }, [currentUserId]);
 
   // 3. Listen to Custom Event to start Outgoing Call from standard Chat interfaces
   useEffect(() => {

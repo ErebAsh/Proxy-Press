@@ -31,28 +31,32 @@ public class MainActivity extends BridgeActivity {
         // Delay the painting slightly to ensure the window is ready
         new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(this::paintWebViewBackground, 100);
         
-        // Add JS interface after a short delay
-        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-            try {
-                if (this.getBridge() != null && this.getBridge().getWebView() != null) {
-                    this.getBridge().getWebView().addJavascriptInterface(new Object() {
-                        @JavascriptInterface
-                        public void hide() {
-                            hideNativeSplash();
-                        }
-                    }, "AndroidNativeSplash");
+        // Add JS interfaces immediately to make sure they are loaded before the web page starts executing
+        try {
+            if (this.getBridge() != null && this.getBridge().getWebView() != null) {
+                this.getBridge().getWebView().addJavascriptInterface(new Object() {
+                    @JavascriptInterface
+                    public void hide() {
+                        hideNativeSplash();
+                    }
+                }, "AndroidNativeSplash");
 
-                    this.getBridge().getWebView().addJavascriptInterface(new Object() {
-                        @JavascriptInterface
-                        public String getPendingAcceptedCall() {
-                            String call = pendingCallJson;
-                            pendingCallJson = null; // Consume it
-                            return call;
-                        }
-                    }, "AndroidCallBridge");
-                }
-            } catch (Exception e) {}
-        }, 1000);
+                this.getBridge().getWebView().addJavascriptInterface(new Object() {
+                    @JavascriptInterface
+                    public String getPendingAcceptedCall() {
+                        return pendingCallJson;
+                    }
+
+                    @JavascriptInterface
+                    public void clearPendingAcceptedCall() {
+                        pendingCallJson = null;
+                    }
+                }, "AndroidCallBridge");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
         
     }
 
