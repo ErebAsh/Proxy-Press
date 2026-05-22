@@ -108,10 +108,6 @@ public class CustomPushService extends MessagingService {
             notificationManager.createNotificationChannel(channel);
         }
 
-        // Check if device screen is locked
-        android.app.KeyguardManager keyguardManager = (android.app.KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
-        boolean isLocked = keyguardManager != null && keyguardManager.isKeyguardLocked();
-
         // Build Decline Intent (runs in background via CallActionReceiver)
         Intent declineIntent = new Intent(this, CallActionReceiver.class);
         declineIntent.setAction("ACTION_DECLINE");
@@ -138,14 +134,20 @@ public class CustomPushService extends MessagingService {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
         );
 
-        // Build CallActivity intent
-        Intent callIntent = new Intent(this, IncomingCallActivity.class);
-        callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        callIntent.putExtra("callerId", callerId);
-        callIntent.putExtra("callerName", callerName);
-        callIntent.putExtra("avatarUrl", avatarUrl);
-        callIntent.putExtra("channelName", channelName);
-        callIntent.putExtra("callType", callType);
+        // Build Content Intent (opens MainActivity to show incoming call UI in WebView)
+        Intent contentIntent = new Intent(this, MainActivity.class);
+        contentIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        contentIntent.putExtra("incomingCall", true);
+        contentIntent.putExtra("channelName", channelName);
+        contentIntent.putExtra("callerId", callerId);
+        contentIntent.putExtra("callerName", callerName);
+        contentIntent.putExtra("callType", callType);
+        PendingIntent contentPendingIntent = PendingIntent.getActivity(
+            this, 
+            104, 
+            contentIntent, 
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
+        );
 
         int smallIcon = getResources().getIdentifier("ic_stat_name", "drawable", getPackageName());
         if (smallIcon == 0) smallIcon = getApplicationInfo().icon;
@@ -161,27 +163,8 @@ public class CustomPushService extends MessagingService {
                 .setSound(ringtoneUri)
                 .setColor(android.graphics.Color.parseColor("#0F172A"))
                 .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Decline", declinePendingIntent)
-                .addAction(android.R.drawable.ic_menu_call, "Accept", acceptPendingIntent);
-
-        if (isLocked) {
-            // Screen is locked: Wake screen and launch full screen activity dialer
-            PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(
-                this, 
-                101, 
-                callIntent, 
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
-            );
-            builder.setFullScreenIntent(fullScreenPendingIntent, true);
-        } else {
-            // Screen is unlocked: Show non-disruptive heads-up banner
-            PendingIntent normalPendingIntent = PendingIntent.getActivity(
-                this, 
-                104, 
-                callIntent, 
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
-            );
-            builder.setContentIntent(normalPendingIntent);
-        }
+                .addAction(android.R.drawable.ic_menu_call, "Accept", acceptPendingIntent)
+                .setContentIntent(contentPendingIntent);
 
         notificationManager.notify(101, builder.build());
     }

@@ -177,14 +177,34 @@ export default function GlobalCallManager() {
       });
     };
 
+    // Listen to Warm Start / Backgrounded Call Incoming events (tapping notification banner)
+    const handleNativeCallIncoming = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { channel, callerId, callerName, callType } = customEvent.detail;
+      console.log('[Global Call] Warm start call incoming from Native activity:', channel, callerId, callerName, callType);
+
+      setActiveCall({
+        type: callType === 'video' ? 'video' : 'voice',
+        mode: 'incoming',
+        user: {
+          id: callerId,
+          name: callerName || 'Incoming Caller',
+          avatar: ''
+        },
+        channelName: channel
+      });
+    };
+
     if (!currentUserId || currentUserId === 'me') return;
 
     window.addEventListener('native-call-accepted', handleNativeCallAccepted);
+    window.addEventListener('native-call-incoming', handleNativeCallIncoming);
 
-    // B. Check for Cold Start/Warm Start Accepted Calls via Native bridge
+    // B. Check for Cold Start/Warm Start Calls via Native bridge
     const checkColdStartCall = () => {
       try {
         if (typeof window !== 'undefined' && (window as any).AndroidCallBridge) {
+          // Check for accepted call first (prioritized)
           const pendingCallStr = (window as any).AndroidCallBridge.getPendingAcceptedCall();
           if (pendingCallStr) {
             const pendingCall = JSON.parse(pendingCallStr);
@@ -215,6 +235,31 @@ export default function GlobalCallManager() {
               },
               channelName: pendingCall.channel
             });
+            return;
+          }
+
+          // Check for incoming call (notification banner clicked)
+          if ((window as any).AndroidCallBridge.getPendingIncomingCall) {
+            const pendingIncomingStr = (window as any).AndroidCallBridge.getPendingIncomingCall();
+            if (pendingIncomingStr) {
+              const pendingCall = JSON.parse(pendingIncomingStr);
+              console.log('[Global Call] Incoming call loaded from Native bridge:', pendingCall);
+
+              if ((window as any).AndroidCallBridge.clearPendingIncomingCall) {
+                (window as any).AndroidCallBridge.clearPendingIncomingCall();
+              }
+
+              setActiveCall({
+                type: pendingCall.callType === 'video' ? 'video' : 'voice',
+                mode: 'incoming',
+                user: {
+                  id: pendingCall.callerId,
+                  name: pendingCall.callerName || 'Incoming Caller',
+                  avatar: ''
+                },
+                channelName: pendingCall.channel
+              });
+            }
           }
         }
       } catch (err) {
@@ -238,6 +283,7 @@ export default function GlobalCallManager() {
 
     return () => {
       window.removeEventListener('native-call-accepted', handleNativeCallAccepted);
+      window.removeEventListener('native-call-incoming', handleNativeCallIncoming);
       window.removeEventListener('focus', checkColdStartCall);
       document.removeEventListener('visibilitychange', handleFocusOrVisibility);
       clearInterval(timer);
