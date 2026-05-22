@@ -82,6 +82,12 @@
             android:theme="@style/AppTheme.NoActionBar">
         </activity>
 
+        <receiver android:name=".CallActionReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="ACTION_DECLINE" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name=".CustomPushService"
             android:exported="true">

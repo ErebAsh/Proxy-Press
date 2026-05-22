@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import MobileBottomNav from '@/app/components/Sidebar/MobileBottomNav';
-import CallOverlay from '@/app/components/Messaging/CallOverlay';
 import './messages.css';
 import { 
   getConversations, 
@@ -676,131 +675,11 @@ function MessagesContent() {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [lightboxMedia, setLightboxMedia] = useState<{ url: string; msgId: string; sender: string; time: string; type: 'image' | 'video' } | null>(null);
 
-  /* ─── Calling State ─── */
-  const [activeCall, setActiveCall] = useState<{
-    type: 'voice' | 'video';
-    mode: 'incoming' | 'outgoing' | 'connected';
-    user: any;
-    channelName?: string;
-  } | null>(null);
-
-  // Sync calling state to URL for global UI awareness (like hiding footer)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (activeCall) {
-      params.set('calling', 'true');
-    } else {
-      params.delete('calling');
-    }
-    const newSearch = params.toString();
-    const newUrl = `${window.location.pathname}${newSearch ? '?' + newSearch : ''}`;
-    window.history.replaceState(null, '', newUrl);
-
-    // Also use body class for instant CSS-based hiding of footer
-    if (activeCall) {
-      document.body.classList.add('calling-active');
-    } else {
-      document.body.classList.remove('calling-active');
-    }
-
-    return () => {
-      document.body.classList.remove('calling-active');
-    };
-  }, [activeCall]);
-
-  // Listen for Call Accepted events from Native Android container (Full-Screen Intent)
-  useEffect(() => {
-    const handleNativeCallAccepted = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      const { channel, callerId, callerName, callType } = customEvent.detail;
-
-      console.log("[Native Bridge] Call accepted from background:", channel, callerId, callerName, callType);
-
-      // Notify Caller via HTTP post to trigger 'call-accepted' Pusher signal
-      fetch('/api/messages/call', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          targetUserId: callerId,
-          event: 'call-accepted'
-        })
-      }).catch(err => console.error("Error signaling call acceptance to peer:", err));
-
-      setActiveCall({
-        type: callType === 'video' ? 'video' : 'voice',
-        mode: 'connected',
-        user: { 
-          id: callerId, 
-          name: callerName || "Incoming Caller",
-          avatar: "👤"
-        },
-        channelName: channel
-      });
-    };
-
-    window.addEventListener('native-call-accepted', handleNativeCallAccepted);
-    return () => {
-      window.removeEventListener('native-call-accepted', handleNativeCallAccepted);
-    };
-  }, []);
-
-  // Check for cold-start accepted calls from native bridge on mount
-  useEffect(() => {
-    const checkPendingCall = () => {
-      try {
-        if (typeof window !== 'undefined' && (window as any).AndroidCallBridge) {
-          const pendingCallStr = (window as any).AndroidCallBridge.getPendingAcceptedCall();
-          if (pendingCallStr) {
-            const pendingCall = JSON.parse(pendingCallStr);
-            console.log("[Native Bridge] Cold start accepted call loaded:", pendingCall);
-            
-            // Notify Caller via HTTP post to trigger 'call-accepted' Pusher signal
-            fetch('/api/messages/call', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                targetUserId: pendingCall.callerId,
-                event: 'call-accepted'
-              })
-            }).catch(err => console.error("Error signaling cold-start call acceptance:", err));
-
-            setActiveCall({
-              type: pendingCall.callType === 'video' ? 'video' : 'voice',
-              mode: 'connected',
-              user: { 
-                id: pendingCall.callerId, 
-                name: pendingCall.callerName || "Incoming Caller",
-                avatar: "👤"
-              },
-              channelName: pendingCall.channel
-            });
-          }
-        }
-      } catch (e) {
-        console.error("Error checking cold-start accepted call:", e);
-      }
-    };
-
-    checkPendingCall();
-    const timer = setTimeout(checkPendingCall, 1500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  /* ─── Calling Logic (Agora & Pusher) ─── */
-  const agoraClient = useRef<any>(null);
-  const localTracks = useRef<any[]>([]);
-  const handleEndCallRef = useRef<any>(null);
-
   /* ─── Presence & Messaging Signaling (Pusher) ─── */
   useEffect(() => {
     if (!currentUserId || currentUserId === 'me') return;
 
     let pusher: any;
-    let userChannel: any;
     let presenceChannel: any;
 
     async function setupPusher() {
@@ -811,7 +690,7 @@ function MessagesContent() {
       });
       pusherRef.current = pusher;
 
-      // 1. Presence Channel (Global Messenger Status)
+      // Presence Channel (Global Messenger Online/Offline Status)
       presenceChannel = pusher.subscribe('presence-messenger');
       
       presenceChannel.bind('pusher:subscription_succeeded', (members: any) => {
@@ -829,28 +708,6 @@ function MessagesContent() {
           return next;
         });
       });
-
-      // 2. User Private Channel (For Incoming Calls & Personal Signaling)
-      userChannel = pusher.subscribe(`private-user-${currentUserId}`);
-      
-      userChannel.bind('incoming-call', (data: any) => {
-        setActiveCall(prev => {
-          if (prev) return prev; 
-          return {
-            type: data.type,
-            mode: 'incoming',
-            user: data.caller,
-            channelName: data.channelName
-          };
-        });
-      });
-
-      userChannel.bind('call-accepted', () => {
-        setActiveCall(prev => (prev?.mode === 'outgoing' ? { ...prev, mode: 'connected' } : prev));
-      });
-
-      userChannel.bind('call-rejected', () => setActiveCall(null));
-      userChannel.bind('call-ended', () => handleEndCallRef.current?.());
     }
 
     setupPusher();
@@ -1203,151 +1060,21 @@ function MessagesContent() {
   };
 
   /* ─── Signaling & Calling Logic ─── */
-  const startCall = async (type: 'voice' | 'video') => {
-    if (!activeConversation) return;
+  const startCall = (type: 'voice' | 'video') => {
+    if (!activeConversation || !currentUserId) return;
     
     const channelName = `call_${Date.now()}`;
-    setActiveCall({
-      type,
-      mode: 'outgoing',
-      user: activeConversation.user,
-      channelName
-    });
-
-    try {
-      // 1. Trigger Signaling via API (Pusher)
-      await fetch('/api/messages/call', {
-        method: 'POST',
-        body: JSON.stringify({
-          targetUserId: activeConversation.user.id,
-          event: 'incoming-call',
-          channelName,
-          type,
-          caller: {
-            id: currentUserId,
-            name: 'User', // In a real app, use the current user's name
-            avatar: ''
-          }
-        })
-      });
-    } catch (err) {
-      console.error('Failed to start call:', err);
-      setActiveCall(null);
-    }
-  };
-
-  const joinAgoraChannel = async () => {
-    if (!activeCall || !activeCall.channelName || agoraClient.current) return;
-
-    try {
-      const AgoraRTC = (await import('agora-rtc-sdk-ng')).default;
-      agoraClient.current = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
-
-      // Handle Remote Tracks immediately BEFORE joining or creating local tracks
-      // to avoid race conditions and missing publications.
-      agoraClient.current.on('user-published', async (user: any, mediaType: string) => {
-        try {
-          await agoraClient.current.subscribe(user, mediaType);
-          if (mediaType === 'video') {
-            user.videoTrack.play('remote-player');
-          } else {
-            user.audioTrack.play();
-          }
-        } catch (subErr) {
-          console.error('Error subscribing to remote user:', subErr);
-        }
-      });
-      
-      const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
-      await agoraClient.current.join(appId, activeCall.channelName, null, null);
-
-      // Create Local Tracks (asynchronously prompts for permissions)
-      if (activeCall.type === 'video') {
-        const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
-        localTracks.current = [audioTrack, videoTrack];
-        videoTrack.play('local-player');
-        await agoraClient.current.publish([audioTrack, videoTrack]);
-      } else {
-        const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        localTracks.current = [audioTrack];
-        await agoraClient.current.publish([audioTrack]);
-      }
-
-    } catch (err) {
-      console.error('Agora Join Error:', err);
-      handleEndCall();
-    }
-  };
-
-  useEffect(() => {
-    if (activeCall?.mode === 'connected' && !agoraClient.current) {
-      joinAgoraChannel();
-    }
-  }, [activeCall?.mode]);
-
-  const handleAcceptCall = async () => {
-    if (!activeCall || !activeCall.channelName) return;
     
-    // 1. Notify Caller
-    await fetch('/api/messages/call', {
-      method: 'POST',
-      body: JSON.stringify({
-        targetUserId: activeCall.user.id,
-        event: 'call-accepted'
-      })
-    });
-
-    // 2. Set mode to connected (the useEffect will trigger joinAgoraChannel)
-    setActiveCall({ ...activeCall, mode: 'connected' });
-  };
-
-  const handleDeclineCall = async () => {
-    if (activeCall) {
-      await fetch('/api/messages/call', {
-        method: 'POST',
-        body: JSON.stringify({
-          targetUserId: activeCall.user.id,
-          event: 'call-rejected'
-        })
-      });
-    }
-    setActiveCall(null);
-  };
-
-  const handleEndCall = async () => {
-    if (activeCall) {
-      // Notify Peer
-      fetch('/api/messages/call', {
-        method: 'POST',
-        body: JSON.stringify({
-          targetUserId: activeCall.user.id,
-          event: 'call-ended'
-        })
-      }).catch(() => {});
-    }
-
-    if (agoraClient.current) {
-      try {
-        await agoraClient.current.leave();
-      } catch (leaveErr) {
-        console.error('Error leaving Agora channel:', leaveErr);
+    // Dispatch global custom event to trigger GlobalCallManager
+    window.dispatchEvent(new CustomEvent('initiate-global-call', {
+      detail: {
+        type,
+        channelName,
+        user: activeConversation.user,
+        currentUserId
       }
-      agoraClient.current = null;
-    }
-    localTracks.current.forEach(track => {
-      try {
-        track.stop();
-        track.close();
-      } catch (trackErr) {
-        console.error('Error stopping track:', trackErr);
-      }
-    });
-    localTracks.current = [];
-    setActiveCall(null);
+    }));
   };
-
-  // Sync ref to avoid stale closures in persistent Pusher event listeners
-  handleEndCallRef.current = handleEndCall;
 
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -4137,22 +3864,6 @@ function MessagesContent() {
             <span>Sent successfully</span>
           </div>
         </div>
-      )}
-
-      {/* Call Overlay */}
-      {activeCall && (
-        <CallOverlay
-          type={activeCall.type}
-          mode={activeCall.mode === 'connected' ? 'connected' : activeCall.mode as any}
-          targetUser={{
-            id: activeCall.user.id,
-            name: activeCall.user.name,
-            avatar: activeCall.user.profilePicture || activeCall.user.avatar
-          }}
-          onAccept={handleAcceptCall}
-          onDecline={handleDeclineCall}
-          onEnd={handleEndCall}
-        />
       )}
     </div>
 

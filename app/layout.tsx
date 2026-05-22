@@ -39,6 +39,7 @@ import { NotificationsProvider } from "@/lib/NotificationsContext";
 import { IdentityProvider } from "@/lib/IdentityContext";
 import PWAProvider from "@/lib/PWAProvider";
 import GlobalRealtimeListener from "@/app/components/GlobalRealtimeListener";
+import GlobalCallManager from "@/app/components/GlobalCallManager";
 import CapacitorInitializer from "@/app/components/CapacitorInitializer";
 import SafeNavigationGuard from "@/app/components/SafeNavigationGuard";
 
@@ -120,6 +121,7 @@ export default function RootLayout({
           <IdentityProvider>
             <NotificationsProvider>
               <GlobalRealtimeListener />
+              <GlobalCallManager />
               <SafeNavigationGuard />
               {children}
             </NotificationsProvider>

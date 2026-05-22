@@ -167,6 +167,11 @@ public class MainActivity extends BridgeActivity {
             
             intent.removeExtra("acceptCall");
             
+            android.app.NotificationManager notificationManager = (android.app.NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null) {
+                notificationManager.cancel(101);
+            }
+            
             pendingCallJson = "{\"channel\":\"" + (channelName != null ? channelName : "") + "\",\"callerId\":\"" + (callerId != null ? callerId : "") + "\",\"callerName\":\"" + (callerName != null ? callerName : "") + "\",\"callType\":\"" + (callType != null ? callType : "") + "\"}";
             
             triggerWebviewCallAccept(channelName, callerId, callerName, callType);
