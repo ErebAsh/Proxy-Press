@@ -708,9 +708,92 @@ function MessagesContent() {
     };
   }, [activeCall]);
 
+  // Listen for Call Accepted events from Native Android container (Full-Screen Intent)
+  useEffect(() => {
+    const handleNativeCallAccepted = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { channel, callerId, callerName, callType } = customEvent.detail;
+
+      console.log("[Native Bridge] Call accepted from background:", channel, callerId, callerName, callType);
+
+      // Notify Caller via HTTP post to trigger 'call-accepted' Pusher signal
+      fetch('/api/messages/call', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          targetUserId: callerId,
+          event: 'call-accepted'
+        })
+      }).catch(err => console.error("Error signaling call acceptance to peer:", err));
+
+      setActiveCall({
+        type: callType === 'video' ? 'video' : 'voice',
+        mode: 'connected',
+        user: { 
+          id: callerId, 
+          name: callerName || "Incoming Caller",
+          avatar: "👤"
+        },
+        channelName: channel
+      });
+    };
+
+    window.addEventListener('native-call-accepted', handleNativeCallAccepted);
+    return () => {
+      window.removeEventListener('native-call-accepted', handleNativeCallAccepted);
+    };
+  }, []);
+
+  // Check for cold-start accepted calls from native bridge on mount
+  useEffect(() => {
+    const checkPendingCall = () => {
+      try {
+        if (typeof window !== 'undefined' && (window as any).AndroidCallBridge) {
+          const pendingCallStr = (window as any).AndroidCallBridge.getPendingAcceptedCall();
+          if (pendingCallStr) {
+            const pendingCall = JSON.parse(pendingCallStr);
+            console.log("[Native Bridge] Cold start accepted call loaded:", pendingCall);
+            
+            // Notify Caller via HTTP post to trigger 'call-accepted' Pusher signal
+            fetch('/api/messages/call', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                targetUserId: pendingCall.callerId,
+                event: 'call-accepted'
+              })
+            }).catch(err => console.error("Error signaling cold-start call acceptance:", err));
+
+            setActiveCall({
+              type: pendingCall.callType === 'video' ? 'video' : 'voice',
+              mode: 'connected',
+              user: { 
+                id: pendingCall.callerId, 
+                name: pendingCall.callerName || "Incoming Caller",
+                avatar: "👤"
+              },
+              channelName: pendingCall.channel
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Error checking cold-start accepted call:", e);
+      }
+    };
+
+    checkPendingCall();
+    const timer = setTimeout(checkPendingCall, 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
   /* ─── Calling Logic (Agora & Pusher) ─── */
   const agoraClient = useRef<any>(null);
   const localTracks = useRef<any[]>([]);
+  const handleEndCallRef = useRef<any>(null);
 
   /* ─── Presence & Messaging Signaling (Pusher) ─── */
   useEffect(() => {
@@ -767,7 +850,7 @@ function MessagesContent() {
       });
 
       userChannel.bind('call-rejected', () => setActiveCall(null));
-      userChannel.bind('call-ended', () => handleEndCall());
+      userChannel.bind('call-ended', () => handleEndCallRef.current?.());
     }
 
     setupPusher();
@@ -1159,11 +1242,26 @@ function MessagesContent() {
     try {
       const AgoraRTC = (await import('agora-rtc-sdk-ng')).default;
       agoraClient.current = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+
+      // Handle Remote Tracks immediately BEFORE joining or creating local tracks
+      // to avoid race conditions and missing publications.
+      agoraClient.current.on('user-published', async (user: any, mediaType: string) => {
+        try {
+          await agoraClient.current.subscribe(user, mediaType);
+          if (mediaType === 'video') {
+            user.videoTrack.play('remote-player');
+          } else {
+            user.audioTrack.play();
+          }
+        } catch (subErr) {
+          console.error('Error subscribing to remote user:', subErr);
+        }
+      });
       
       const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID!;
       await agoraClient.current.join(appId, activeCall.channelName, null, null);
 
-      // Create Local Tracks
+      // Create Local Tracks (asynchronously prompts for permissions)
       if (activeCall.type === 'video') {
         const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
         localTracks.current = [audioTrack, videoTrack];
@@ -1174,16 +1272,6 @@ function MessagesContent() {
         localTracks.current = [audioTrack];
         await agoraClient.current.publish([audioTrack]);
       }
-
-      // Handle Remote Tracks
-      agoraClient.current.on('user-published', async (user: any, mediaType: string) => {
-        await agoraClient.current.subscribe(user, mediaType);
-        if (mediaType === 'video') {
-          user.videoTrack.play('remote-player');
-        } else {
-          user.audioTrack.play();
-        }
-      });
 
     } catch (err) {
       console.error('Agora Join Error:', err);
@@ -1239,15 +1327,27 @@ function MessagesContent() {
     }
 
     if (agoraClient.current) {
-      agoraClient.current.leave();
+      try {
+        await agoraClient.current.leave();
+      } catch (leaveErr) {
+        console.error('Error leaving Agora channel:', leaveErr);
+      }
+      agoraClient.current = null;
     }
     localTracks.current.forEach(track => {
-      track.stop();
-      track.close();
+      try {
+        track.stop();
+        track.close();
+      } catch (trackErr) {
+        console.error('Error stopping track:', trackErr);
+      }
     });
     localTracks.current = [];
     setActiveCall(null);
   };
+
+  // Sync ref to avoid stale closures in persistent Pusher event listeners
+  handleEndCallRef.current = handleEndCall;
 
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);

@@ -105,6 +105,40 @@ export default function CapacitorInitializer() {
     
     initPushNotifications();
     
+    // Request Camera, Photo Library, and Microphone permissions on startup
+    const initAppPermissions = async () => {
+      // Only request permissions on the first launch after installation
+      const prompted = localStorage.getItem('startup_permissions_requested');
+      if (prompted) return;
+
+      try {
+        console.log('[Permissions] Requesting startup permissions...');
+
+        // 1. Camera & Photos permission via Capacitor
+        try {
+          const { Camera } = await import('@capacitor/camera');
+          await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
+        } catch (e) {
+          console.log('[Permissions] Capacitor Camera permissions not available:', e);
+        }
+
+        // 2. WebRTC Camera & Microphone permission via standard HTML5 media API
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          // CRITICAL: Stop the stream immediately to turn off native hardware camera/mic indicators
+          stream.getTracks().forEach(track => track.stop());
+        } catch (e) {
+          console.log('[Permissions] WebRTC permissions prompt rejected:', e);
+        }
+
+        localStorage.setItem('startup_permissions_requested', 'true');
+      } catch (err) {
+        console.error('[Permissions] Permission initialization error:', err);
+      }
+    };
+    
+    initAppPermissions();
+    
     // 3. Listen for theme changes dynamically
     const observer = new MutationObserver(() => {
       const isDark = document.documentElement.classList.contains('dark');

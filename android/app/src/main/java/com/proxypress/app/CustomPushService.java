@@ -26,6 +26,9 @@ import java.net.URL;
 import java.util.Map;
 import android.app.ActivityManager;
 import java.util.List;
+import android.media.AudioAttributes;
+import android.net.Uri;
+import android.media.RingtoneManager;
 
 public class CustomPushService extends MessagingService {
 
@@ -39,7 +42,15 @@ public class CustomPushService extends MessagingService {
         }
 
         Map<String, String> data = remoteMessage.getData();
-        if (data.containsKey("type") && data.get("type").equals("message")) {
+        if (data.containsKey("type") && data.get("type").equals("incoming_call")) {
+            String callerId = data.containsKey("callerId") ? data.get("callerId") : "";
+            String callerName = data.containsKey("callerName") ? data.get("callerName") : "Incoming Call";
+            String avatarUrl = data.containsKey("avatarUrl") ? data.get("avatarUrl") : "";
+            String channelName = data.containsKey("channelName") ? data.get("channelName") : "";
+            String callType = data.containsKey("callType") ? data.get("callType") : "voice";
+
+            triggerIncomingCallNotification(callerId, callerName, avatarUrl, channelName, callType);
+        } else if (data.containsKey("type") && data.get("type").equals("message")) {
             String title = data.containsKey("title") ? data.get("title") : "New Message";
             String body = data.containsKey("body") ? data.get("body") : "";
             String avatarUrl = data.containsKey("avatarUrl") ? data.get("avatarUrl") : "";
@@ -47,6 +58,65 @@ public class CustomPushService extends MessagingService {
 
             sendNotification(title, body, avatarUrl, conversationId);
         }
+    }
+
+    private void triggerIncomingCallNotification(String callerId, String callerName, String avatarUrl, String channelName, String callType) {
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        String channelId = "voip_call_channel";
+        Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+        if (ringtoneUri == null) {
+            ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                channelId, 
+                "Incoming Calls", 
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Full-screen incoming call dialer and ringtone notification");
+            channel.enableVibration(true);
+            channel.setVibrationPattern(new long[]{0, 1000, 800, 1000});
+
+            AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                    .build();
+            channel.setSound(ringtoneUri, audioAttributes);
+            notificationManager.createNotificationChannel(channel);
+        }
+
+        Intent callIntent = new Intent(this, IncomingCallActivity.class);
+        callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        callIntent.putExtra("callerId", callerId);
+        callIntent.putExtra("callerName", callerName);
+        callIntent.putExtra("avatarUrl", avatarUrl);
+        callIntent.putExtra("channelName", channelName);
+        callIntent.putExtra("callType", callType);
+
+        PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(
+            this, 
+            101, 
+            callIntent, 
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
+        );
+
+        int smallIcon = getResources().getIdentifier("ic_stat_name", "drawable", getPackageName());
+        if (smallIcon == 0) smallIcon = getApplicationInfo().icon;
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
+                .setSmallIcon(smallIcon)
+                .setContentTitle("Incoming call")
+                .setContentText(callerName + " is calling you")
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_CALL)
+                .setAutoCancel(true)
+                .setOngoing(true)
+                .setSound(ringtoneUri)
+                .setFullScreenIntent(fullScreenPendingIntent, true)
+                .setColor(android.graphics.Color.parseColor("#0F172A"));
+
+        notificationManager.notify(101, builder.build());
     }
 
     private boolean isAppInForeground() {

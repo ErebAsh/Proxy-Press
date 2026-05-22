@@ -26,19 +26,10 @@ export default function CallOverlay({
   onDecline,
   onEnd
 }: CallOverlayProps) {
-  const [status, setStatus] = useState<'ringing' | 'connected' | 'ended'>(
-    mode === 'connected' ? 'connected' : 'ringing'
-  );
+  const status = mode === 'connected' ? 'connected' : 'ringing';
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
-
-  // Sync internal status with mode prop
-  useEffect(() => {
-    if (mode === 'connected') {
-      setStatus('connected');
-    }
-  }, [mode]);
 
   // Timer for connected state
   useEffect(() => {

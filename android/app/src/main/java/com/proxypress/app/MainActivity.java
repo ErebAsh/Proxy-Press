@@ -8,10 +8,12 @@ import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
+import android.content.Intent;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     private NativeSplashView splashView;
+    private String pendingCallJson = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,6 +41,15 @@ public class MainActivity extends BridgeActivity {
                             hideNativeSplash();
                         }
                     }, "AndroidNativeSplash");
+
+                    this.getBridge().getWebView().addJavascriptInterface(new Object() {
+                        @JavascriptInterface
+                        public String getPendingAcceptedCall() {
+                            String call = pendingCallJson;
+                            pendingCallJson = null; // Consume it
+                            return call;
+                        }
+                    }, "AndroidCallBridge");
                 }
             } catch (Exception e) {}
         }, 1000);
@@ -132,5 +143,46 @@ public class MainActivity extends BridgeActivity {
                 getWindow().getDecorView().setBackgroundColor(finalColor);
             });
         } catch (Exception e) {}
+    }
+
+    @Override
+    public void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleCallIntent(intent);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        handleCallIntent(getIntent());
+    }
+
+    private void handleCallIntent(Intent intent) {
+        if (intent != null && intent.getBooleanExtra("acceptCall", false)) {
+            String channelName = intent.getStringExtra("channelName");
+            String callerId = intent.getStringExtra("callerId");
+            String callerName = intent.getStringExtra("callerName");
+            String callType = intent.getStringExtra("callType");
+            
+            intent.removeExtra("acceptCall");
+            
+            pendingCallJson = "{\"channel\":\"" + (channelName != null ? channelName : "") + "\",\"callerId\":\"" + (callerId != null ? callerId : "") + "\",\"callerName\":\"" + (callerName != null ? callerName : "") + "\",\"callType\":\"" + (callType != null ? callType : "") + "\"}";
+            
+            triggerWebviewCallAccept(channelName, callerId, callerName, callType);
+        }
+    }
+
+    private void triggerWebviewCallAccept(String channel, String callerId, String callerName, String callType) {
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+            try {
+                if (this.getBridge() != null && this.getBridge().getWebView() != null) {
+                    String js = "window.dispatchEvent(new CustomEvent('native-call-accepted', { detail: { channel: '" + channel + "', callerId: '" + callerId + "', callerName: '" + callerName + "', callType: '" + callType + "' } }));";
+                    this.getBridge().getWebView().evaluateJavascript(js, null);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 }
