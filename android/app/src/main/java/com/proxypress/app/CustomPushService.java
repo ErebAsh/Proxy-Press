@@ -119,14 +119,15 @@ public class CustomPushService extends MessagingService {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
         );
 
-        // Build Accept Intent (opens MainActivity to answer call)
-        Intent acceptIntent = new Intent(this, MainActivity.class);
-        acceptIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        acceptIntent.putExtra("acceptCall", true);
+        // Build Accept Intent (launches native ConnectedCallActivity directly)
+        Intent acceptIntent = new Intent(this, ConnectedCallActivity.class);
+        acceptIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         acceptIntent.putExtra("channelName", channelName);
         acceptIntent.putExtra("callerId", callerId);
         acceptIntent.putExtra("callerName", callerName);
+        acceptIntent.putExtra("avatarUrl", avatarUrl);
         acceptIntent.putExtra("callType", callType);
+        acceptIntent.putExtra("notifyCaller", true);
         PendingIntent acceptPendingIntent = PendingIntent.getActivity(
             this, 
             103, 
@@ -134,13 +135,13 @@ public class CustomPushService extends MessagingService {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
         );
 
-        // Build Content Intent (opens MainActivity to show incoming call UI in WebView)
-        Intent contentIntent = new Intent(this, MainActivity.class);
-        contentIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        contentIntent.putExtra("incomingCall", true);
+        // Build Content Intent (opens native IncomingCallActivity for ringing UI)
+        Intent contentIntent = new Intent(this, IncomingCallActivity.class);
+        contentIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         contentIntent.putExtra("channelName", channelName);
         contentIntent.putExtra("callerId", callerId);
         contentIntent.putExtra("callerName", callerName);
+        contentIntent.putExtra("avatarUrl", avatarUrl);
         contentIntent.putExtra("callType", callType);
         PendingIntent contentPendingIntent = PendingIntent.getActivity(
             this, 
