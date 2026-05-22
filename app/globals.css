@@ -195,6 +195,8 @@ body {
   transition: background-color var(--transition-slow), border-color var(--transition-slow);
   overflow-y: auto;
   z-index: 40;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
 }
 
 .main-content {
@@ -224,6 +226,8 @@ body {
   padding: 24px 16px;
   overflow-y: auto;
   transition: background-color var(--transition-slow), border-color var(--transition-slow);
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
 }
 
 /* ─────────────────────────────────────────
@@ -235,6 +239,8 @@ body {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   transition: box-shadow var(--transition-base), transform var(--transition-base), border-color var(--transition-base);
+  transform: translate3d(0, 0, 0);
+  will-change: transform, box-shadow;
 }
 
 .card:hover {
@@ -402,6 +408,8 @@ body {
   overflow: hidden;
   transition: box-shadow var(--transition-base), transform var(--transition-base);
   margin-bottom: 24px;
+  transform: translate3d(0, 0, 0);
+  will-change: transform, box-shadow;
 }
 .post-card:hover {
   box-shadow: var(--shadow-md);
