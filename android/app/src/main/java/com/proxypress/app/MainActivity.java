@@ -20,7 +20,10 @@ public class MainActivity extends BridgeActivity {
         int resourceId = getResources().getIdentifier("status_bar_height", "dimen", "android");
         if (resourceId > 0) {
             int statusBarHeight = getResources().getDimensionPixelSize(resourceId);
-            findViewById(android.R.id.content).setPadding(0, statusBarHeight, 0, 0);
+            android.view.View contentView = findViewById(android.R.id.content);
+            if (contentView != null) {
+                contentView.setPadding(0, statusBarHeight, 0, 0);
+            }
         }
         
         showNativeSplash();
