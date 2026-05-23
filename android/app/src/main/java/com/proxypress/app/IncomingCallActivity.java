@@ -75,11 +75,19 @@ public class IncomingCallActivity extends Activity {
 
         // Bind layout views
         TextView tvCallerName = findViewById(R.id.tv_caller_name);
+        TextView tvCallStatus = findViewById(R.id.tv_call_status);
         TextView tvCallType = findViewById(R.id.tv_call_type);
         ImageView ivAvatar = findViewById(R.id.iv_caller_avatar);
 
         tvCallerName.setText(callerName);
         tvCallType.setText(callType.toUpperCase() + " CALL");
+
+        // Dynamically set caller status text based on call type
+        if ("video".equalsIgnoreCase(callType)) {
+            tvCallStatus.setText("INCOMING VIDEO CALL...");
+        } else {
+            tvCallStatus.setText("INCOMING VOICE CALL...");
+        }
 
         // Load circular avatar with Glide
         if (avatarUrl != null && !avatarUrl.isEmpty()) {

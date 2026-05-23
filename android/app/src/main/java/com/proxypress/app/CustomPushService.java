@@ -99,6 +99,8 @@ public class CustomPushService extends MessagingService {
             channel.setDescription("Full-screen incoming call dialer and ringtone notification");
             channel.enableVibration(true);
             channel.setVibrationPattern(new long[]{0, 1000, 800, 1000});
+            channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+            channel.setBypassDnd(true);
 
             AudioAttributes audioAttributes = new AudioAttributes.Builder()
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -134,7 +136,22 @@ public class CustomPushService extends MessagingService {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
         );
 
-        // Build Content Intent (opens MainActivity to show incoming call UI in WebView)
+        // Build Full-Screen Intent (wakes screen & shows IncomingCallActivity immediately)
+        Intent fullScreenIntent = new Intent(this, IncomingCallActivity.class);
+        fullScreenIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
+        fullScreenIntent.putExtra("callerId", callerId);
+        fullScreenIntent.putExtra("callerName", callerName);
+        fullScreenIntent.putExtra("avatarUrl", avatarUrl);
+        fullScreenIntent.putExtra("channelName", channelName);
+        fullScreenIntent.putExtra("callType", callType);
+        PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(
+            this, 
+            105, 
+            fullScreenIntent, 
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE
+        );
+
+        // Build Content Intent (opens MainActivity to show incoming call UI in WebView if banner tapped)
         Intent contentIntent = new Intent(this, MainActivity.class);
         contentIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         contentIntent.putExtra("incomingCall", true);
@@ -162,6 +179,7 @@ public class CustomPushService extends MessagingService {
                 .setOngoing(true)
                 .setSound(ringtoneUri)
                 .setColor(android.graphics.Color.parseColor("#0F172A"))
+                .setFullScreenIntent(fullScreenPendingIntent, true) // <--- Wake screen & display calling UI immediately
                 .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Decline", declinePendingIntent)
                 .addAction(android.R.drawable.ic_menu_call, "Accept", acceptPendingIntent)
                 .setContentIntent(contentPendingIntent);

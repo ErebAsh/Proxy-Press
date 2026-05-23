@@ -19,14 +19,25 @@ class SQLiteService {
         connection = await this.sqlite.retrieveConnection('proxypress_local', encrypted);
         console.log('[SQLite] Retrieved existing connection. 📂');
       } else {
-        connection = await this.sqlite.createConnection(
-          'proxypress_local', 
-          encrypted, 
-          'no-encryption', 
-          1, 
-          false
-        );
-        console.log('[SQLite] Created new connection. 📂');
+        try {
+          connection = await this.sqlite.createConnection(
+            'proxypress_local', 
+            encrypted, 
+            'no-encryption', 
+            1, 
+            false
+          );
+          console.log('[SQLite] Created new connection. 📂');
+        } catch (createErr: any) {
+          console.warn('[SQLite] createConnection failed, attempting retrieveConnection fallback:', createErr);
+          const errMsg = createErr?.message || String(createErr);
+          if (errMsg.includes('already exists')) {
+            connection = await this.sqlite.retrieveConnection('proxypress_local', encrypted);
+            console.log('[SQLite] Successfully recovered and retrieved existing connection. 📂');
+          } else {
+            throw createErr;
+          }
+        }
       }
       
       this.db = connection;
