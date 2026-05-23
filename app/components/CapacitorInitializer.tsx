@@ -36,20 +36,23 @@ export default function CapacitorInitializer() {
           attempts++;
           let success = false;
 
+          // 1. Hide custom Android splash if available
           if ((window as any).AndroidNativeSplash) {
             console.log('[Splash] Found AndroidNativeSplash, hiding...');
             (window as any).AndroidNativeSplash.hide();
             success = true;
-          } else if ((window as any).NativeSplash) {
+          }
+          if ((window as any).NativeSplash) {
             (window as any).NativeSplash.hide();
             success = true;
-          } else {
-            try {
-              const { SplashScreen } = await import('@capacitor/splash-screen');
-              await SplashScreen.hide();
-              success = true;
-            } catch (e) {}
           }
+
+          // 2. Hide Capacitor built-in splash screen
+          try {
+            const { SplashScreen } = await import('@capacitor/splash-screen');
+            await SplashScreen.hide();
+            success = true;
+          } catch (e) {}
 
           if (success || attempts >= maxAttempts) {
             clearInterval(interval);
