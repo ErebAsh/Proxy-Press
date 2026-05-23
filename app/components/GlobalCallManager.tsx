@@ -6,7 +6,7 @@ import CallOverlay from '@/app/components/Messaging/CallOverlay';
 
 interface GlobalCallState {
   type: 'voice' | 'video';
-  mode: 'incoming' | 'outgoing';
+  mode: 'incoming' | 'outgoing' | 'connected';
   user: {
     id: string;
     name: string;
@@ -19,13 +19,100 @@ export default function GlobalCallManager() {
   const { currentUserId, currentUser } = useIdentity();
   const [activeCall, setActiveCall] = useState<GlobalCallState | null>(null);
   
+  const agoraClient = useRef<any>(null);
+  const localTracks = useRef<any[]>([]);
   const activeCallRef = useRef<GlobalCallState | null>(null);
   const pusherRef = useRef<any>(null);
+  const [pendingNativeCall, setPendingNativeCall] = useState<{
+    type: 'accepted' | 'incoming';
+    channel: string;
+    callerId: string;
+    callerName: string;
+    callType: string;
+  } | null>(null);
 
   // Sync ref to avoid stale closures in event handlers
   useEffect(() => {
     activeCallRef.current = activeCall;
   }, [activeCall]);
+
+  // Early bridge polling for cold start - reads native call data before auth is available
+  useEffect(() => {
+    let stopped = false;
+    
+    const pollBridge = () => {
+      if (stopped || activeCallRef.current) return;
+      try {
+        if (typeof window === 'undefined' || !(window as any).AndroidCallBridge) return;
+        
+        const acceptedStr = (window as any).AndroidCallBridge.getPendingAcceptedCall();
+        if (acceptedStr) {
+          const data = JSON.parse(acceptedStr);
+          if ((window as any).AndroidCallBridge.clearPendingAcceptedCall) {
+            (window as any).AndroidCallBridge.clearPendingAcceptedCall();
+          }
+          console.log('[Global Call] Early bridge poll found accepted call:', data);
+          setPendingNativeCall({ type: 'accepted', ...data });
+          stopped = true;
+          return;
+        }
+        
+        if ((window as any).AndroidCallBridge.getPendingIncomingCall) {
+          const incomingStr = (window as any).AndroidCallBridge.getPendingIncomingCall();
+          if (incomingStr) {
+            const data = JSON.parse(incomingStr);
+            if ((window as any).AndroidCallBridge.clearPendingIncomingCall) {
+              (window as any).AndroidCallBridge.clearPendingIncomingCall();
+            }
+            console.log('[Global Call] Early bridge poll found incoming call:', data);
+            setPendingNativeCall({ type: 'incoming', ...data });
+            stopped = true;
+          }
+        }
+      } catch (err) {
+        console.error('[Global Call] Early bridge poll error:', err);
+      }
+    };
+    
+    pollBridge();
+    const timer = setInterval(pollBridge, 500);
+    const timeout = setTimeout(() => { stopped = true; clearInterval(timer); }, 15000);
+    
+    return () => { stopped = true; clearInterval(timer); clearTimeout(timeout); };
+  }, []);
+
+  // Process pending native call data once auth is ready
+  useEffect(() => {
+    if (!currentUserId || currentUserId === 'me' || !pendingNativeCall || activeCall) return;
+    
+    const { type, channel, callerId, callerName, callType } = pendingNativeCall;
+    setPendingNativeCall(null);
+    
+    console.log('[Global Call] Processing cold-start pending call:', type, channel, callerId);
+    
+    if (type === 'accepted') {
+      // Notify caller (backup - Android native side also sends this notification)
+      fetch('/api/messages/call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId: callerId, event: 'call-accepted' })
+      }).catch(err => console.error('[Global Call] Error sending accepted notification:', err));
+      
+      setActiveCall({
+        type: callType === 'video' ? 'video' : 'voice',
+        mode: 'connected',
+        user: { id: callerId, name: callerName || 'Incoming Caller', avatar: '' },
+        channelName: channel
+      });
+    } else {
+      setActiveCall({
+        type: callType === 'video' ? 'video' : 'voice',
+        mode: 'incoming',
+        user: { id: callerId, name: callerName || 'Incoming Caller', avatar: '' },
+        channelName: channel
+      });
+    }
+  }, [currentUserId, pendingNativeCall, activeCall]);
 
   // Sync calling state to URL and body class for global UI awareness (like hiding footer)
   useEffect(() => {
@@ -48,6 +135,20 @@ export default function GlobalCallManager() {
     };
   }, [activeCall]);
 
+  // Handle Agora RTC connection when transition to 'connected'
+  useEffect(() => {
+    if (activeCall?.mode === 'connected' && !agoraClient.current) {
+      joinAgoraChannel();
+    }
+  }, [activeCall?.mode]);
+
+  // Clean up RTC on component unmount
+  useEffect(() => {
+    return () => {
+      cleanupRTC();
+    };
+  }, []);
+
   // 1. Pusher Subscriptions for Real-Time Call Events (Active Foreground App)
   useEffect(() => {
     if (!currentUserId || currentUserId === 'me') return;
@@ -58,6 +159,7 @@ export default function GlobalCallManager() {
     async function setupPusherCalling() {
       try {
         const PusherClient = (await import('pusher-js')).default;
+        // Re-use existing Pusher client if available globally, or create new
         pusher = new PusherClient(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
           cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
           authEndpoint: '/api/pusher/auth',
@@ -66,10 +168,11 @@ export default function GlobalCallManager() {
 
         userChannel = pusher.subscribe(`private-user-${currentUserId}`);
 
-        // Listen for Incoming Calls (when app is in foreground)
+        // Listen for Incoming Calls
         userChannel.bind('incoming-call', (data: any) => {
           console.log('[Global Call] Pusher incoming-call event:', data);
           
+          // Only accept if not already in a call
           if (activeCallRef.current) {
             console.log('[Global Call] Busy: Rejecting call');
             fetch('/api/messages/call', {
@@ -95,26 +198,11 @@ export default function GlobalCallManager() {
           });
         });
 
-        // Listen for Peer Accepting Call → launch native connected call activity
+        // Listen for Peer Accepting Call
         userChannel.bind('call-accepted', () => {
           console.log('[Global Call] Pusher call-accepted event');
           if (activeCallRef.current?.mode === 'outgoing') {
-            const current = activeCallRef.current;
-            // Launch native ConnectedCallActivity
-            try {
-              if ((window as any).AndroidCallBridge?.launchConnectedCall) {
-                (window as any).AndroidCallBridge.launchConnectedCall(
-                  current.channelName,
-                  current.user.id,
-                  current.user.name,
-                  current.type
-                );
-              }
-            } catch (err) {
-              console.error('[Global Call] Error launching native call:', err);
-            }
-            // Dismiss the WebView overlay
-            setActiveCall(null);
+            setActiveCall(prev => prev ? { ...prev, mode: 'connected' } : null);
           }
         });
 
@@ -122,12 +210,14 @@ export default function GlobalCallManager() {
         userChannel.bind('call-rejected', () => {
           console.log('[Global Call] Pusher call-rejected event');
           setActiveCall(null);
+          cleanupRTC();
         });
 
         // Listen for Peer Ending Call
         userChannel.bind('call-ended', () => {
           console.log('[Global Call] Pusher call-ended event');
           setActiveCall(null);
+          cleanupRTC();
         });
       } catch (err) {
         console.error('[Global Call] Pusher setup error:', err);
@@ -142,7 +232,152 @@ export default function GlobalCallManager() {
     };
   }, [currentUserId]);
 
-  // 2. Listen to Custom Event to start Outgoing Call from Chat UI
+  // 2. Capacitor Android Calling Bridge (Native Call Intent & Cold Start Hooks)
+  useEffect(() => {
+    // A. Listen to Warm Start / Backgrounded Call Accepted events
+    const handleNativeCallAccepted = (event: Event) => {
+      if (activeCallRef.current) return;
+      const customEvent = event as CustomEvent;
+      const { channel, callerId, callerName, callType } = customEvent.detail;
+      console.log('[Global Call] Warm start call accepted from Native activity:', channel, callerId, callerName, callType);
+
+      // Notify caller
+      fetch('/api/messages/call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetUserId: callerId,
+          event: 'call-accepted'
+        })
+      }).catch(err => console.error('[Global Call] Error sending call accepted notification:', err));
+
+      setActiveCall({
+        type: callType === 'video' ? 'video' : 'voice',
+        mode: 'connected',
+        user: {
+          id: callerId,
+          name: callerName || 'Incoming Caller',
+          avatar: ''
+        },
+        channelName: channel
+      });
+    };
+
+    // Listen to Warm Start / Backgrounded Call Incoming events (tapping notification banner)
+    const handleNativeCallIncoming = (event: Event) => {
+      if (activeCallRef.current) return;
+      const customEvent = event as CustomEvent;
+      const { channel, callerId, callerName, callType } = customEvent.detail;
+      console.log('[Global Call] Warm start call incoming from Native activity:', channel, callerId, callerName, callType);
+
+      setActiveCall({
+        type: callType === 'video' ? 'video' : 'voice',
+        mode: 'incoming',
+        user: {
+          id: callerId,
+          name: callerName || 'Incoming Caller',
+          avatar: ''
+        },
+        channelName: channel
+      });
+    };
+
+    if (!currentUserId || currentUserId === 'me') return;
+
+    window.addEventListener('native-call-accepted', handleNativeCallAccepted);
+    window.addEventListener('native-call-incoming', handleNativeCallIncoming);
+
+    // B. Check for Cold Start/Warm Start Calls via Native bridge
+    const checkColdStartCall = () => {
+      try {
+        if (typeof window !== 'undefined' && (window as any).AndroidCallBridge) {
+          // Check for accepted call first (prioritized)
+          const pendingCallStr = (window as any).AndroidCallBridge.getPendingAcceptedCall();
+          if (pendingCallStr) {
+            const pendingCall = JSON.parse(pendingCallStr);
+            console.log('[Global Call] Accepted call loaded from Native bridge:', pendingCall);
+
+            // Clear the pending call on the native side only AFTER we successfully read it
+            if ((window as any).AndroidCallBridge.clearPendingAcceptedCall) {
+              (window as any).AndroidCallBridge.clearPendingAcceptedCall();
+            }
+
+            // Notify caller
+            fetch('/api/messages/call', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                targetUserId: pendingCall.callerId,
+                event: 'call-accepted'
+              })
+            }).catch(err => console.error('[Global Call] Error sending accepted notification:', err));
+
+            setActiveCall({
+              type: pendingCall.callType === 'video' ? 'video' : 'voice',
+              mode: 'connected',
+              user: {
+                id: pendingCall.callerId,
+                name: pendingCall.callerName || 'Incoming Caller',
+                avatar: ''
+              },
+              channelName: pendingCall.channel
+            });
+            return;
+          }
+
+          // Check for incoming call (notification banner clicked)
+          if ((window as any).AndroidCallBridge.getPendingIncomingCall) {
+            const pendingIncomingStr = (window as any).AndroidCallBridge.getPendingIncomingCall();
+            if (pendingIncomingStr) {
+              const pendingCall = JSON.parse(pendingIncomingStr);
+              console.log('[Global Call] Incoming call loaded from Native bridge:', pendingCall);
+
+              if ((window as any).AndroidCallBridge.clearPendingIncomingCall) {
+                (window as any).AndroidCallBridge.clearPendingIncomingCall();
+              }
+
+              setActiveCall({
+                type: pendingCall.callType === 'video' ? 'video' : 'voice',
+                mode: 'incoming',
+                user: {
+                  id: pendingCall.callerId,
+                  name: pendingCall.callerName || 'Incoming Caller',
+                  avatar: ''
+                },
+                channelName: pendingCall.channel
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[Global Call] Cold/Warm start checking error:', err);
+      }
+    };
+
+    checkColdStartCall();
+    // Periodically poll to catch any bridge instantiation or delayed intents
+    const timer = setInterval(checkColdStartCall, 800);
+
+    // Fast-track check when app receives focus or is brought to foreground
+    const handleFocusOrVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        checkColdStartCall();
+      }
+    };
+
+    window.addEventListener('focus', checkColdStartCall);
+    document.addEventListener('visibilitychange', handleFocusOrVisibility);
+
+    return () => {
+      window.removeEventListener('native-call-accepted', handleNativeCallAccepted);
+      window.removeEventListener('native-call-incoming', handleNativeCallIncoming);
+      window.removeEventListener('focus', checkColdStartCall);
+      document.removeEventListener('visibilitychange', handleFocusOrVisibility);
+      clearInterval(timer);
+    };
+  }, [currentUserId]);
+
+  // 3. Listen to Custom Event to start Outgoing Call from standard Chat interfaces
   useEffect(() => {
     const handleInitiateCall = async (event: Event) => {
       const customEvent = event as CustomEvent;
@@ -161,6 +396,7 @@ export default function GlobalCallManager() {
       });
 
       try {
+        // Trigger Signaling via API (which triggers Pusher and high-priority FCM notification)
         await fetch('/api/messages/call', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -188,12 +424,58 @@ export default function GlobalCallManager() {
     };
   }, [currentUser]);
 
-  // Accept: notify caller + launch native ConnectedCallActivity
+  // Agora RTC Connection logic
+  const joinAgoraChannel = async () => {
+    const current = activeCallRef.current;
+    if (!current || !current.channelName || agoraClient.current) return;
+
+    try {
+      const AgoraRTC = (await import('agora-rtc-sdk-ng')).default;
+      agoraClient.current = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+
+      // Handle Remote Tracks immediately BEFORE joining or creating local tracks
+      agoraClient.current.on('user-published', async (remoteUser: any, mediaType: string) => {
+        try {
+          await agoraClient.current.subscribe(remoteUser, mediaType);
+          if (mediaType === 'video') {
+            remoteUser.videoTrack.play('remote-player');
+          } else {
+            remoteUser.audioTrack.play();
+          }
+        } catch (subErr) {
+          console.error('[Global Call] Subscribing error:', subErr);
+        }
+      });
+
+      // Join the Agora room (using demo AppID - empty token for simplicity)
+      const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID || 'a40a49d1f5524131911420be48971afc'; 
+      await agoraClient.current.join(appId, current.channelName, null, null);
+      console.log('[Global Call] Successfully joined Agora channel:', current.channelName);
+
+      // Create Local Tracks (Mic/Camera)
+      if (current.type === 'video') {
+        const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+        localTracks.current = [audioTrack, videoTrack];
+        
+        await agoraClient.current.publish([audioTrack, videoTrack]);
+        videoTrack.play('local-player');
+      } else {
+        const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        localTracks.current = [audioTrack];
+        await agoraClient.current.publish([audioTrack]);
+      }
+      console.log('[Global Call] Published local tracks');
+    } catch (err) {
+      console.error('[Global Call] Agora join/publish failed:', err);
+      handleEndCall();
+    }
+  };
+
   const handleAcceptCall = async () => {
     const current = activeCallRef.current;
     if (!current || !current.channelName) return;
 
-    // Notify caller
+    // Notify caller - don't block call connection on notification failure
     try {
       await fetch('/api/messages/call', {
         method: 'POST',
@@ -207,22 +489,8 @@ export default function GlobalCallManager() {
       console.error('[Global Call] Error notifying caller of accept:', err);
     }
 
-    // Launch native connected call activity
-    try {
-      if ((window as any).AndroidCallBridge?.launchConnectedCall) {
-        (window as any).AndroidCallBridge.launchConnectedCall(
-          current.channelName,
-          current.user.id,
-          current.user.name,
-          current.type
-        );
-      }
-    } catch (err) {
-      console.error('[Global Call] Error launching native call:', err);
-    }
-
-    // Dismiss the overlay
-    setActiveCall(null);
+    // Always transition to connected - Agora join handles the actual media connection
+    setActiveCall({ ...current, mode: 'connected' });
   };
 
   const handleDeclineCall = async () => {
@@ -238,6 +506,7 @@ export default function GlobalCallManager() {
       }).catch(() => {});
     }
     setActiveCall(null);
+    cleanupRTC();
   };
 
   const handleEndCall = async () => {
@@ -253,6 +522,27 @@ export default function GlobalCallManager() {
       }).catch(() => {});
     }
     setActiveCall(null);
+    cleanupRTC();
+  };
+
+  const cleanupRTC = () => {
+    if (agoraClient.current) {
+      try {
+        agoraClient.current.leave();
+      } catch (err) {
+        console.error('[Global Call] Agora leaving failed:', err);
+      }
+      agoraClient.current = null;
+    }
+    localTracks.current.forEach(track => {
+      try {
+        track.stop();
+        track.close();
+      } catch (err) {
+        console.error('[Global Call] Track closing failed:', err);
+      }
+    });
+    localTracks.current = [];
   };
 
   if (!activeCall) return null;
@@ -260,7 +550,7 @@ export default function GlobalCallManager() {
   return (
     <CallOverlay
       type={activeCall.type}
-      mode={activeCall.mode}
+      mode={activeCall.mode === 'connected' ? 'connected' : activeCall.mode}
       targetUser={{
         id: activeCall.user.id,
         name: activeCall.user.name,

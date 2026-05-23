@@ -139,22 +139,15 @@ public class IncomingCallActivity extends Activity {
             public void onClick(View v) {
                 stopRingtoneAndVibrator();
 
-                // Cancel the notification
-                android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                if (nm != null) nm.cancel(101);
-
-                // Notify caller that call was accepted
-                notifyCallerAccepted(callerId);
-
-                // Launch native connected call screen directly
-                Intent callIntent = new Intent(IncomingCallActivity.this, ConnectedCallActivity.class);
-                callIntent.putExtra("channelName", channelName);
-                callIntent.putExtra("callerId", callerId);
-                callIntent.putExtra("callerName", callerName);
-                callIntent.putExtra("avatarUrl", avatarUrl);
-                callIntent.putExtra("callType", callType);
-                callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(callIntent);
+                // Start MainActivity passing call accepted action
+                Intent mainIntent = new Intent(IncomingCallActivity.this, MainActivity.class);
+                mainIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                mainIntent.putExtra("acceptCall", true);
+                mainIntent.putExtra("channelName", channelName);
+                mainIntent.putExtra("callerId", callerId);
+                mainIntent.putExtra("callerName", callerName);
+                mainIntent.putExtra("callType", callType);
+                startActivity(mainIntent);
 
                 finish();
             }
@@ -168,35 +161,6 @@ public class IncomingCallActivity extends Activity {
                 finish();
             }
         });
-    }
-
-    private void notifyCallerAccepted(final String callerId) {
-        if (callerId == null || callerId.isEmpty()) return;
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    java.net.URL url = new java.net.URL("https://proxy-press-omega.vercel.app/api/messages/call");
-                    java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-                    conn.setRequestMethod("POST");
-                    conn.setRequestProperty("Content-Type", "application/json; utf-8");
-                    conn.setRequestProperty("Accept", "application/json");
-                    conn.setDoOutput(true);
-
-                    String jsonInputString = "{\"targetUserId\": \"" + callerId + "\", \"event\": \"call-accepted\"}";
-
-                    try (java.io.OutputStream os = conn.getOutputStream()) {
-                        byte[] input = jsonInputString.getBytes("utf-8");
-                        os.write(input, 0, input.length);
-                    }
-
-                    int code = conn.getResponseCode();
-                    android.util.Log.d("IncomingCallActivity", "Accept call notification response code: " + code);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        }).start();
     }
 
     private void notifyCallerDecline(final String callerId) {

@@ -92,7 +92,7 @@ public class NativeSplashView extends View {
         super.onDraw(canvas);
         int width = getWidth();
         int height = getHeight();
-        if (width <= 0 || height <= 0) { return; }
+        if (width <= 0 || height <= 0) { invalidate(); return; }
 
         long elapsed = System.currentTimeMillis() - startTime;
         canvas.drawColor(bgColor);

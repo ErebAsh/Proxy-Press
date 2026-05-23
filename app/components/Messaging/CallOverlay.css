@@ -83,12 +83,21 @@
   text-transform: uppercase;
 }
 
-.call-overlay.connected {
+.call-overlay.voice {
+  background: linear-gradient(135deg, #090d16 0%, #111827 50%, #030712 100%);
+}
+
+.call-overlay.connected.video {
   background: black;
   padding: 40px 24px;
 }
 
-.call-overlay.connected .call-header {
+.call-overlay.connected.voice {
+  background: linear-gradient(135deg, #0c101d 0%, #1e1b4b 50%, #020617 100%);
+  padding: 60px 24px;
+}
+
+.call-overlay.connected.video .call-header {
   margin-top: 20px;
   background: rgba(0, 0, 0, 0.3);
   padding: 12px 24px;
@@ -96,16 +105,31 @@
   backdrop-filter: blur(10px);
 }
 
-.call-overlay.connected .caller-avatar-container {
+.call-overlay.connected.video .caller-avatar-container {
   display: none;
 }
 
-.call-overlay.connected .caller-name {
+.call-overlay.connected.video .caller-name {
   font-size: 20px;
 }
 
-.call-overlay.connected .call-status {
+.call-overlay.connected.video .call-status {
   font-size: 14px;
+}
+
+/* Green slow pulse for connected voice calls */
+.call-overlay.connected.voice .pulse-ring {
+  animation: pulseOutSlow 3.5s infinite;
+  background: #10b981;
+}
+
+.call-overlay.connected.voice .pulse-ring:nth-child(2) {
+  animation-delay: 1s;
+}
+
+@keyframes pulseOutSlow {
+  0% { transform: scale(1); opacity: 0.3; }
+  100% { transform: scale(2); opacity: 0; }
 }
 
 .video-container {
