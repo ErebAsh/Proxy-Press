@@ -35,6 +35,9 @@ public class MainActivity extends BridgeActivity {
         // Add JS interfaces immediately to make sure they are loaded before the web page starts executing
         try {
             if (this.getBridge() != null && this.getBridge().getWebView() != null) {
+                // Force clear WebView cache on launch to prevent Next.js old chunk caching conflicts (Server Action mismatches)
+                this.getBridge().getWebView().clearCache(true);
+
                 this.getBridge().getWebView().addJavascriptInterface(new Object() {
                     @JavascriptInterface
                     public void hide() {

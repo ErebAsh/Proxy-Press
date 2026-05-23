@@ -14,10 +14,30 @@ class SQLiteService {
       let connection: SQLiteDBConnection;
 
       // Check if connection already exists in the native registry to avoid connection conflict on React re-mounts
-      const isConn = await this.sqlite.isConnection('proxypress_local', encrypted);
+      const isConnResult = await this.sqlite.isConnection('proxypress_local', encrypted);
+      const isConn = typeof isConnResult === 'boolean' ? isConnResult : !!(isConnResult as any)?.result;
+      
       if (isConn) {
-        connection = await this.sqlite.retrieveConnection('proxypress_local', encrypted);
-        console.log('[SQLite] Retrieved existing connection. 📂');
+        try {
+          connection = await this.sqlite.retrieveConnection('proxypress_local', encrypted);
+          console.log('[SQLite] Retrieved existing connection. 📂');
+        } catch (retrieveErr) {
+          console.warn('[SQLite] isConnection was true but retrieveConnection failed. Creating new...', retrieveErr);
+          try {
+            connection = await this.sqlite.createConnection(
+              'proxypress_local', 
+              encrypted, 
+              'no-encryption', 
+              1, 
+              false
+            );
+            console.log('[SQLite] Successfully created new connection after retrieve failed. 📂');
+          } catch (createErr) {
+            console.error('[SQLite] Failed to create connection after retrieve fallback:', createErr);
+            // Try retrieve one last time as a desperate measure
+            connection = await this.sqlite.retrieveConnection('proxypress_local', encrypted);
+          }
+        }
       } else {
         try {
           connection = await this.sqlite.createConnection(
@@ -31,7 +51,7 @@ class SQLiteService {
         } catch (createErr: any) {
           console.warn('[SQLite] createConnection failed, attempting retrieveConnection fallback:', createErr);
           const errMsg = createErr?.message || String(createErr);
-          if (errMsg.includes('already exists')) {
+          if (errMsg.includes('already exists') || errMsg.includes('Connection') || errMsg.includes('exist')) {
             connection = await this.sqlite.retrieveConnection('proxypress_local', encrypted);
             console.log('[SQLite] Successfully recovered and retrieved existing connection. 📂');
           } else {
@@ -45,7 +65,8 @@ class SQLiteService {
       // Open the database if not already open
       try {
         const isOpen = await this.db.isDBOpen();
-        if (!isOpen?.result) {
+        const isOpenBool = typeof isOpen === 'boolean' ? isOpen : !!(isOpen as any)?.result;
+        if (!isOpenBool) {
           await this.db.open();
         }
       } catch (openErr) {

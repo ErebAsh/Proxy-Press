@@ -122,15 +122,6 @@ export default function CapacitorInitializer() {
           console.log('[Permissions] Capacitor Camera permissions not available:', e);
         }
 
-        // 2. WebRTC Camera & Microphone permission via standard HTML5 media API
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-          // CRITICAL: Stop the stream immediately to turn off native hardware camera/mic indicators
-          stream.getTracks().forEach(track => track.stop());
-        } catch (e) {
-          console.log('[Permissions] WebRTC permissions prompt rejected:', e);
-        }
-
         localStorage.setItem('startup_permissions_requested', 'true');
       } catch (err) {
         console.error('[Permissions] Permission initialization error:', err);
