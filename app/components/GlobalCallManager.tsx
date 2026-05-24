@@ -447,26 +447,33 @@ export default function GlobalCallManager() {
         }
       });
 
-      // Join the Agora room (using demo AppID - empty token for simplicity)
+      // Join the Agora room
       const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID || 'a40a49d1f5524131911420be48971afc'; 
       await agoraClient.current.join(appId, current.channelName, null, null);
       console.log('[Global Call] Successfully joined Agora channel:', current.channelName);
 
-      // Create Local Tracks (Mic/Camera)
-      if (current.type === 'video') {
-        const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
-        localTracks.current = [audioTrack, videoTrack];
-        
-        await agoraClient.current.publish([audioTrack, videoTrack]);
-        videoTrack.play('local-player');
-      } else {
-        const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        localTracks.current = [audioTrack];
-        await agoraClient.current.publish([audioTrack]);
+      // Create Local Tracks (resilient against permission / system blocks)
+      try {
+        if (current.type === 'video') {
+          const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+          localTracks.current = [audioTrack, videoTrack];
+          await agoraClient.current.publish([audioTrack, videoTrack]);
+          videoTrack.play('local-player');
+        } else {
+          const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+          localTracks.current = [audioTrack];
+          await agoraClient.current.publish([audioTrack]);
+        }
+        console.log('[Global Call] Published local tracks successfully');
+      } catch (trackErr: any) {
+        console.error('[Global Call] Creating local audio/video tracks failed, continuing with subscription only:', trackErr);
+        // Alert user of the local hardware block but keep call screen active
+        alert(`Note: Local microphone/camera could not be started. You will be in receive-only mode. Details: ${trackErr.message || trackErr}`);
       }
-      console.log('[Global Call] Published local tracks');
-    } catch (err) {
-      console.error('[Global Call] Agora join/publish failed:', err);
+    } catch (err: any) {
+      console.error('[Global Call] Agora join failed:', err);
+      // Verbose alert to diagnose token or credential requirements rather than silent failure
+      alert(`Could not establish voice/video call connection.\n\nReason: ${err.message || err}\n\nTips:\n- Verify Agora App ID in Vercel settings\n- Check if token authentication is forced on your Agora console`);
       handleEndCall();
     }
   };
