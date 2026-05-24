@@ -171,13 +171,32 @@ public class IncomingCallActivity extends Activity {
         });
     }
 
+    private String getServerUrl() {
+        try {
+            java.io.InputStream is = getAssets().open("capacitor.config.json");
+            int size = is.available();
+            byte[] buffer = new byte[size];
+            is.read(buffer);
+            is.close();
+            String json = new String(buffer, "UTF-8");
+            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\"url\"\\s*:\\s*\"([^\"]+)\"").matcher(json);
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "https://proxy-press-omega.vercel.app";
+    }
+
     private void notifyCallerDecline(final String callerId) {
         if (callerId == null || callerId.isEmpty()) return;
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    java.net.URL url = new java.net.URL("https://proxy-press-omega.vercel.app/api/messages/call");
+                    String serverUrl = getServerUrl();
+                    java.net.URL url = new java.net.URL(serverUrl + (serverUrl.endsWith("/") ? "" : "/") + "api/messages/call");
                     java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("POST");
                     conn.setRequestProperty("Content-Type", "application/json; utf-8");
@@ -192,7 +211,7 @@ public class IncomingCallActivity extends Activity {
                     }
 
                     int code = conn.getResponseCode();
-                    android.util.Log.d("IncomingCallActivity", "Decline call notification response code: " + code);
+                    android.util.Log.d("IncomingCallActivity", "Decline call notification response code: " + code + " to server: " + serverUrl);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

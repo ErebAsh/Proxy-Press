@@ -23,6 +23,7 @@
     "@supabase/supabase-js": "^2.105.4",
     "@upstash/redis": "^1.38.0",
     "agora-rtc-sdk-ng": "^4.24.3",
+    "agora-token": "^2.0.5",
     "cloudinary": "^2.10.0",
     "drizzle-orm": "^0.45.2",
     "firebase-admin": "^13.10.0",

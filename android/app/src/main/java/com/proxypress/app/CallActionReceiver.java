@@ -19,17 +19,36 @@ public class CallActionReceiver extends BroadcastReceiver {
 
         if ("ACTION_DECLINE".equals(action)) {
             // Notify the caller that the call was rejected
-            notifyCallerDecline(callerId);
+            notifyCallerDecline(context, callerId);
         }
     }
 
-    private void notifyCallerDecline(final String callerId) {
+    private String getServerUrl(Context context) {
+        try {
+            java.io.InputStream is = context.getAssets().open("capacitor.config.json");
+            int size = is.available();
+            byte[] buffer = new byte[size];
+            is.read(buffer);
+            is.close();
+            String json = new String(buffer, "UTF-8");
+            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("\"url\"\\s*:\\s*\"([^\"]+)\"").matcher(json);
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "https://proxy-press-omega.vercel.app";
+    }
+
+    private void notifyCallerDecline(final Context context, final String callerId) {
         if (callerId == null || callerId.isEmpty()) return;
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    java.net.URL url = new java.net.URL("https://proxy-press-omega.vercel.app/api/messages/call");
+                    String serverUrl = getServerUrl(context);
+                    java.net.URL url = new java.net.URL(serverUrl + (serverUrl.endsWith("/") ? "" : "/") + "api/messages/call");
                     java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("POST");
                     conn.setRequestProperty("Content-Type", "application/json; utf-8");
@@ -44,7 +63,7 @@ public class CallActionReceiver extends BroadcastReceiver {
                     }
 
                     int code = conn.getResponseCode();
-                    android.util.Log.d("CallActionReceiver", "Decline call notification response code: " + code);
+                    android.util.Log.d("CallActionReceiver", "Decline call notification response code: " + code + " to server: " + serverUrl);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

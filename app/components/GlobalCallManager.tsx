@@ -429,13 +429,20 @@ export default function GlobalCallManager() {
     const current = activeCallRef.current;
     if (!current || !current.channelName || agoraClient.current) return;
 
+    const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID || 'a40a49d1f5524131911420be48971afc'; 
+
     try {
       const AgoraRTC = (await import('agora-rtc-sdk-ng')).default;
+      
+      // Ensure we haven't unmounted or left the call while importing
+      if (!activeCallRef.current) return;
+
       agoraClient.current = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
 
       // Handle Remote Tracks immediately BEFORE joining or creating local tracks
       agoraClient.current.on('user-published', async (remoteUser: any, mediaType: string) => {
         try {
+          if (!agoraClient.current) return;
           await agoraClient.current.subscribe(remoteUser, mediaType);
           if (mediaType === 'video') {
             remoteUser.videoTrack.play('remote-player');
@@ -448,19 +455,61 @@ export default function GlobalCallManager() {
       });
 
       // Join the Agora room
-      const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID || 'a40a49d1f5524131911420be48971afc'; 
-      await agoraClient.current.join(appId, current.channelName, null, null);
+      // 1. Fetch the Agora security token from the backend
+      let token: string | null = null;
+      try {
+        const res = await fetch('/api/agora/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            channelName: current.channelName,
+            uid: 0
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.token) {
+            token = data.token;
+            console.log('[Global Call] Successfully obtained Agora security token');
+          }
+        }
+      } catch (tokenErr) {
+        console.warn('[Global Call] Failed to fetch Agora token, proceeding tokenless:', tokenErr);
+      }
+
+      // Safeguard check before calling join
+      if (!agoraClient.current) return;
+
+      await agoraClient.current.join(appId, current.channelName, token, 0);
       console.log('[Global Call] Successfully joined Agora channel:', current.channelName);
 
       // Create Local Tracks (resilient against permission / system blocks)
       try {
+        if (!agoraClient.current) return;
+
         if (current.type === 'video') {
           const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+          
+          if (!agoraClient.current) {
+            audioTrack.stop();
+            audioTrack.close();
+            videoTrack.stop();
+            videoTrack.close();
+            return;
+          }
+
           localTracks.current = [audioTrack, videoTrack];
           await agoraClient.current.publish([audioTrack, videoTrack]);
           videoTrack.play('local-player');
         } else {
           const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+          
+          if (!agoraClient.current) {
+            audioTrack.stop();
+            audioTrack.close();
+            return;
+          }
+
           localTracks.current = [audioTrack];
           await agoraClient.current.publish([audioTrack]);
         }
@@ -468,13 +517,17 @@ export default function GlobalCallManager() {
       } catch (trackErr: any) {
         console.error('[Global Call] Creating local audio/video tracks failed, continuing with subscription only:', trackErr);
         // Alert user of the local hardware block but keep call screen active
-        alert(`Note: Local microphone/camera could not be started. You will be in receive-only mode. Details: ${trackErr.message || trackErr}`);
+        if (agoraClient.current) {
+          alert(`Note: Local microphone/camera could not be started. You will be in receive-only mode. Details: ${trackErr.message || trackErr}`);
+        }
       }
     } catch (err: any) {
       console.error('[Global Call] Agora join failed:', err);
       // Verbose alert to diagnose token or credential requirements rather than silent failure
-      alert(`Could not establish voice/video call connection.\n\nReason: ${err.message || err}\n\nTips:\n- Verify Agora App ID in Vercel settings\n- Check if token authentication is forced on your Agora console`);
-      handleEndCall();
+      if (agoraClient.current) {
+        alert(`Could not establish voice/video call connection.\n\nApp ID in use: "${appId}"\n\nReason: ${err.message || err}\n\nTips:\n- Verify Agora App ID in Vercel settings\n- Check if token authentication is forced on your Agora console`);
+        handleEndCall();
+      }
     }
   };
 
