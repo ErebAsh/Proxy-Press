@@ -38,6 +38,14 @@ public class MainActivity extends BridgeActivity {
                 // Force clear WebView cache on launch to prevent Next.js old chunk caching conflicts (Server Action mismatches)
                 this.getBridge().getWebView().clearCache(true);
 
+                // Configure WebView custom WebChromeClient to grant WebRTC audio/video permissions
+                this.getBridge().getWebView().setWebChromeClient(new com.getcapacitor.BridgeWebChromeClient(this.getBridge()) {
+                    @Override
+                    public void onPermissionRequest(final PermissionRequest request) {
+                        request.grant(request.getResources());
+                    }
+                });
+
                 this.getBridge().getWebView().addJavascriptInterface(new Object() {
                     @JavascriptInterface
                     public void hide() {

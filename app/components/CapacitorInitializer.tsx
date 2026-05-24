@@ -125,6 +125,18 @@ export default function CapacitorInitializer() {
           console.log('[Permissions] Capacitor Camera permissions not available:', e);
         }
 
+        // 2. Force system-level Microphone and Camera permissions prompt via WebRTC
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+            // Immediately stop tracks to free up the hardware
+            stream.getTracks().forEach(track => track.stop());
+            console.log('[Permissions] WebRTC media permissions granted on startup');
+          } catch (e) {
+            console.warn('[Permissions] WebRTC startup permission prompt failed/denied:', e);
+          }
+        }
+
         localStorage.setItem('startup_permissions_requested', 'true');
       } catch (err) {
         console.error('[Permissions] Permission initialization error:', err);
