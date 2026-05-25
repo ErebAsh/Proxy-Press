@@ -2,14 +2,21 @@ import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacito
 import { Capacitor } from '@capacitor/core';
 
 class SQLiteService {
-  private sqlite: SQLiteConnection = new SQLiteConnection(CapacitorSQLite);
+  private sqlite: SQLiteConnection | null = null;
   private db: SQLiteDBConnection | null = null;
   private isNative: boolean = Capacitor.isNativePlatform();
 
   async initDB() {
+    if (!this.isNative) {
+      console.log('[SQLite] Non-native platform. Skipping SQLite initialization.');
+      return null;
+    }
     if (this.db) return this.db;
 
     try {
+      if (!this.sqlite) {
+        this.sqlite = new SQLiteConnection(CapacitorSQLite);
+      }
       const encrypted = false; // Disable native SQLCipher encryption to prevent startup native dependency crash
       let connection: SQLiteDBConnection;
 
