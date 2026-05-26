@@ -13,7 +13,8 @@
     "backgroundColor": "#0F172A"
   },
   "ios": {
-    "contentInset": "always"
+    "contentInset": "always",
+    "allowsBackForwardNavigationGestures": true
   },
   "plugins": {
     "PushNotifications": {

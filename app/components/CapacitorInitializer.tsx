@@ -142,8 +142,26 @@ export default function CapacitorInitializer() {
         console.error('[Permissions] Permission initialization error:', err);
       }
     };
-    
     initAppPermissions();
+
+    // 2.5. Listen for native back button / swipe back gesture on Android/iOS
+    const initBackButton = async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        await App.addListener('backButton', ({ canGoBack }) => {
+          if (canGoBack || window.history.length > 1) {
+            window.history.back();
+          } else {
+            App.minimizeApp();
+          }
+        });
+        console.log('[Capacitor] Back button/swipe gesture listener registered');
+      } catch (e) {
+        console.log('[Capacitor] App plugin backButton event not supported on this platform');
+      }
+    };
+
+    initBackButton();
     
     // 3. Listen for theme changes dynamically
     const observer = new MutationObserver(() => {
