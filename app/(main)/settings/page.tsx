@@ -70,6 +70,23 @@ function SettingsContent() {
   }, []);
 
   const handleLogout = async () => {
+    // Clear custom cached profile data in localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('proxypress_user_data');
+      localStorage.removeItem('proxypress_viewer_id');
+      
+      // Programmatically delete all service worker caches
+      if ('caches' in window) {
+        try {
+          const cacheKeys = await caches.keys();
+          await Promise.all(cacheKeys.map(key => caches.delete(key)));
+          console.log('All Service Worker caches cleared on logout');
+        } catch (e) {
+          console.error('Failed to clear caches on logout:', e);
+        }
+      }
+    }
+
     await logout();
     router.push('/login');
     router.refresh();
