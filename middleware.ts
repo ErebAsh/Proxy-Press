@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export default function proxy(request: NextRequest) {
+export default function middleware(request: NextRequest) {
   const session = request.cookies.get('proxypress_session') || 
                   request.cookies.get('next-auth.session-token') ||
                   request.cookies.get('__Secure-next-auth.session-token');
   const onboarded = request.cookies.get('proxypress_onboarded');
-  const { pathname } = request.nextUrl;
+  
+  // Get pathname and normalize it by stripping any trailing slash for clean matching
+  let pathname = request.nextUrl.pathname;
+  if (pathname.endsWith('/') && pathname !== '/') {
+    pathname = pathname.slice(0, -1);
+  }
 
   // Paths that are accessible without authentication
   const publicPaths = ['/login', '/favicon.ico', '/logo.png', '/manifest.json'];
@@ -17,8 +22,7 @@ export default function proxy(request: NextRequest) {
 
   // No session → redirect to login (except public paths)
   if (!session && !isPublicPath) {
-    const loginUrl = new URL('/login', request.url);
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // Has session but not onboarded → redirect to /onboarding

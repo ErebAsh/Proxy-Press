@@ -904,6 +904,30 @@ export async function signUp(formData: FormData) {
   });
 
   if (existing) {
+    if (!existing.onboardingComplete) {
+      // User started signing up but didn't finish onboarding.
+      // Update their password (in case they want to change it) and log them in to resume onboarding!
+      await db.update(schema.users)
+        .set({ password })
+        .where(eq(schema.users.email, email));
+
+      const cookieStore = await cookies();
+      cookieStore.set('proxypress_session', existing.id, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7,
+      });
+      cookieStore.set('proxypress_onboarded', '0', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7,
+      });
+      return { success: true };
+    }
     return { success: false, error: 'Email already in use' };
   }
 
