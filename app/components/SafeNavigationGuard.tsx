@@ -20,11 +20,133 @@ function SafeNavigationGuardInner() {
   // Generation counter: incremented on each new navigation to discard stale completions
   const navGeneration = useRef<number>(0);
 
+  // Swipe Back Gesture Elements
+  const swipeIndicatorRef = useRef<HTMLDivElement | null>(null);
+
   // Performance Settings Configuration
   const [navLockEnabled, setNavLockEnabled] = useState(true);
   const [navTimeout, setNavTimeout] = useState(5000); // 5s default safety timeout
   const [hoverPrefetchEnabled, setHoverPrefetchEnabled] = useState(true);
   const [navIndicator, setNavIndicator] = useState('gradient');
+
+  // Swipe Back Gesture Logic
+  useEffect(() => {
+    let startX = 0;
+    let startY = 0;
+    let isTracking = false;
+    const edgeThreshold = 30; // px from left edge
+    const minSwipeDistance = 80; // px needed to trigger back navigation
+    
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      
+      // Only initiate swipe if close to the left edge
+      if (touch.clientX < edgeThreshold) {
+        startX = touch.clientX;
+        startY = touch.clientY;
+        isTracking = true;
+        
+        // Show indicator
+        if (swipeIndicatorRef.current) {
+          swipeIndicatorRef.current.style.transition = 'none';
+          swipeIndicatorRef.current.style.transform = 'translateY(-50%) translateX(-100%) scale(0.8)';
+          swipeIndicatorRef.current.style.opacity = '0';
+          swipeIndicatorRef.current.style.display = 'flex';
+        }
+      }
+    };
+    
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isTracking) return;
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - startX;
+      const deltaY = Math.abs(touch.clientY - startY);
+      
+      // If user is swiping vertically, abort
+      if (deltaY > deltaX && deltaX < 20) {
+        isTracking = false;
+        if (swipeIndicatorRef.current) {
+          swipeIndicatorRef.current.style.display = 'none';
+        }
+        return;
+      }
+      
+      if (deltaX > 0) {
+        // Prevent scrolling while swiping back
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        
+        // Calculate progress (0 to 1) towards the threshold
+        const progress = Math.min(deltaX / minSwipeDistance, 1.5);
+        
+        // Apply springy resistance past the threshold
+        let pull = deltaX;
+        if (deltaX > minSwipeDistance) {
+          const extra = deltaX - minSwipeDistance;
+          pull = minSwipeDistance + extra * 0.4;
+        }
+        
+        // Update indicator visual representation
+        if (swipeIndicatorRef.current) {
+          const scale = 0.8 + Math.min(progress * 0.3, 0.4);
+          const opacity = Math.min(progress * 0.9, 0.95);
+          // Pull indicator out from left edge (sliding from -50px start position)
+          const tx = Math.min(pull - 50, 40);
+          swipeIndicatorRef.current.style.transform = `translateY(-50%) translateX(${tx}px) scale(${scale})`;
+          swipeIndicatorRef.current.style.opacity = `${opacity}`;
+          
+          // Color change on crossing threshold
+          if (deltaX >= minSwipeDistance) {
+            swipeIndicatorRef.current.classList.add('ready');
+          } else {
+            swipeIndicatorRef.current.classList.remove('ready');
+          }
+        }
+      }
+    };
+    
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!isTracking) return;
+      isTracking = false;
+      
+      const touch = e.changedTouches[0];
+      const deltaX = touch.clientX - startX;
+      
+      if (swipeIndicatorRef.current) {
+        swipeIndicatorRef.current.style.transition = 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s';
+        
+        if (deltaX >= minSwipeDistance) {
+          // Trigger Back Navigation!
+          swipeIndicatorRef.current.style.transform = 'translateY(-50%) translateX(100px) scale(1.3)';
+          swipeIndicatorRef.current.style.opacity = '0';
+          setTimeout(() => {
+            if (swipeIndicatorRef.current) swipeIndicatorRef.current.style.display = 'none';
+          }, 250);
+          
+          window.history.back();
+        } else {
+          // Reset indicator with a smooth spring bounce
+          swipeIndicatorRef.current.style.transform = 'translateY(-50%) translateX(-100%) scale(0.8)';
+          swipeIndicatorRef.current.style.opacity = '0';
+          setTimeout(() => {
+            if (swipeIndicatorRef.current) swipeIndicatorRef.current.style.display = 'none';
+          }, 250);
+        }
+      }
+    };
+    
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd, { passive: false });
+    
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, []);
 
   // Sync settings from localStorage and Capacitor preferences
   useEffect(() => {
@@ -300,13 +422,45 @@ function SafeNavigationGuardInner() {
     };
   }, [hoverPrefetchEnabled, router]);
 
-  if (!navigating || navIndicator === 'none') return null;
-
   const isOled = navIndicator === 'oled';
+  const showNavBar = navigating && navIndicator !== 'none';
 
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `
+        .swipe-back-indicator {
+          position: fixed;
+          left: -40px;
+          top: 50%;
+          transform: translateY(-50%) translateX(-100%) scale(0.8);
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.2);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1.5px solid rgba(255, 255, 255, 0.3);
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+          color: #FFFFFF;
+          display: none;
+          align-items: center;
+          justify-content: center;
+          z-index: 999999;
+          pointer-events: none;
+          transition: background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+        }
+        .dark .swipe-back-indicator {
+          background: rgba(15, 23, 42, 0.6);
+          border: 1.5px solid rgba(255, 255, 255, 0.15);
+          color: #F8FAFC;
+        }
+        .swipe-back-indicator.ready {
+          background: #2563EB;
+          border-color: #3B82F6;
+          color: #FFFFFF;
+          box-shadow: 0 4px 20px rgba(37, 99, 235, 0.45);
+        }
+        
         .safe-nav-bar {
           position: fixed;
           top: 0;
@@ -335,15 +489,28 @@ function SafeNavigationGuardInner() {
           50% { opacity: 1; }
         }
       `}} />
+      
       <div 
-        className="safe-nav-bar" 
-        style={{ 
-          transform: `scaleX(${progress / 100})`,
-          opacity: progress === 100 ? 0 : 1
-        }}
+        ref={swipeIndicatorRef}
+        className="swipe-back-indicator"
       >
-        <div className="safe-nav-glow" />
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
       </div>
+
+      {showNavBar && (
+        <div 
+          className="safe-nav-bar" 
+          style={{ 
+            transform: `scaleX(${progress / 100})`,
+            opacity: progress === 100 ? 0 : 1
+          }}
+        >
+          <div className="safe-nav-glow" />
+        </div>
+      )}
     </>
   );
 }
