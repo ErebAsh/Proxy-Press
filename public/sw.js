@@ -59,7 +59,11 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => {
+        .catch((error) => {
+          // If the browser/Next.js aborted the request, let the abort propagate naturally
+          if (error && error.name === 'AbortError') {
+            throw error;
+          }
           // Offline fallback: try cache, otherwise show error
           return caches.match(event.request).then((cachedResponse) => {
             return cachedResponse || new Response('Offline content unavailable', {

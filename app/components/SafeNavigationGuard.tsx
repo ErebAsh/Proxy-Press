@@ -397,11 +397,12 @@ function SafeNavigationGuardInner() {
     };
   }, [navLockEnabled, navTimeout]);
 
-  // Hover & Touch Prefetching for Instant Renders
+  // Hover & Touch Prefetching with 80ms Debounce to prevent queue congestion
   useEffect(() => {
     if (!hoverPrefetchEnabled) return;
 
     const prefetchedPaths = new Set<string>();
+    let prefetchTimeout: NodeJS.Timeout | null = null;
 
     const handleHoverOrTouch = (event: Event) => {
       const link = (event.target as HTMLElement).closest('a');
@@ -419,23 +420,39 @@ function SafeNavigationGuardInner() {
       // Avoid double prefetching the same path
       if (prefetchedPaths.has(href)) return;
 
-      prefetchedPaths.add(href);
-      
-      // Programmatically prefetch via Next.js router
-      try {
-        router.prefetch(href);
-        console.log(`[SafeNavigation] Hover-prefetch initiated for: ${href}`);
-      } catch (err) {
-        console.error('[SafeNavigation] Hover-prefetch failed:', err);
+      // Clear any pending prefetch to prevent multiple quick triggers
+      if (prefetchTimeout) clearTimeout(prefetchTimeout);
+
+      // Debounce prefetch by 80ms: only fetch if hovered/touched for a moment
+      prefetchTimeout = setTimeout(() => {
+        prefetchedPaths.add(href);
+        try {
+          router.prefetch(href);
+          console.log(`[SafeNavigation] Debounced prefetch completed for: ${href}`);
+        } catch (err) {
+          console.error('[SafeNavigation] Debounced prefetch failed:', err);
+        }
+      }, 80);
+    };
+
+    const handleLeave = () => {
+      if (prefetchTimeout) {
+        clearTimeout(prefetchTimeout);
+        prefetchTimeout = null;
       }
     };
 
     document.addEventListener('mouseover', handleHoverOrTouch, { passive: true });
     document.addEventListener('touchstart', handleHoverOrTouch, { passive: true });
+    document.addEventListener('mouseout', handleLeave, { passive: true });
+    document.addEventListener('touchend', handleLeave, { passive: true });
 
     return () => {
       document.removeEventListener('mouseover', handleHoverOrTouch);
       document.removeEventListener('touchstart', handleHoverOrTouch);
+      document.removeEventListener('mouseout', handleLeave);
+      document.removeEventListener('touchend', handleLeave);
+      if (prefetchTimeout) clearTimeout(prefetchTimeout);
     };
   }, [hoverPrefetchEnabled, router]);
 

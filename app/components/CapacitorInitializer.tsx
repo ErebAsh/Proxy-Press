@@ -144,12 +144,31 @@ export default function CapacitorInitializer() {
     };
     initAppPermissions();
 
+    // Track SPA navigation history depth manually since pushState doesn't sync perfectly with native canGoBack
+    if (typeof window !== 'undefined') {
+      (window as any).spaHistoryDepth = (window as any).spaHistoryDepth || 0;
+      
+      const originalPush = window.history.pushState;
+      window.history.pushState = function(...args) {
+        (window as any).spaHistoryDepth = ((window as any).spaHistoryDepth || 0) + 1;
+        return originalPush.apply(this, args);
+      };
+    }
+
+    const handlePopState = () => {
+      if (typeof window !== 'undefined' && (window as any).spaHistoryDepth > 0) {
+        (window as any).spaHistoryDepth--;
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+
     // 2.5. Listen for native back button / swipe back gesture on Android/iOS
     const initBackButton = async () => {
       try {
         const { App } = await import('@capacitor/app');
-        await App.addListener('backButton', ({ canGoBack }) => {
-          if (canGoBack || window.history.length > 1) {
+        await App.addListener('backButton', () => {
+          const depth = (window as any).spaHistoryDepth || 0;
+          if (depth > 0) {
             window.history.back();
           } else {
             App.minimizeApp();
@@ -176,7 +195,10 @@ export default function CapacitorInitializer() {
       attributeFilter: ['class'] 
     });
     
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, []);
 
   return null;
