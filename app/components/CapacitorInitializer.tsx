@@ -1,16 +1,29 @@
 "use client";
 
-import { useEffect, useRef } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 export default function CapacitorInitializer() {
   const pathname = usePathname();
-  const router = useRouter();
   
-  // Track the latest pathname in a ref so the event listener always has the current value without needing to re-bind
-  const pathnameRef = useRef(pathname);
+  // Track Next.js routing history manually to bypass native WebView canGoBack bugs
   useEffect(() => {
-    pathnameRef.current = pathname;
+    if (typeof window === 'undefined') return;
+    
+    const stack = (window as any).nextJsHistoryStack || [];
+    
+    // Ignore duplicate sequential paths (e.g. strict mode re-renders)
+    if (stack[stack.length - 1] === pathname) return;
+
+    // Check if it's a back navigation (the new path matches the one before the current)
+    if (stack.length > 1 && stack[stack.length - 2] === pathname) {
+      stack.pop();
+    } else {
+      // Forward navigation
+      stack.push(pathname);
+    }
+    
+    (window as any).nextJsHistoryStack = stack;
   }, [pathname]);
 
   useEffect(() => {
@@ -159,13 +172,15 @@ export default function CapacitorInitializer() {
       try {
         const { App } = await import('@capacitor/app');
         await App.addListener('backButton', () => {
-          // In Next.js, relying on pathname via Next router is the most robust way to detect root screens
-          const currentPath = pathnameRef.current;
-          const rootPaths = ['/', '/login'];
-          if (rootPaths.includes(currentPath)) {
-            App.minimizeApp();
+          // Check our manually tracked SPA history stack
+          const stack = (window as any).nextJsHistoryStack || [];
+          
+          if (stack.length > 1) {
+            // We have history, go back safely
+            window.history.back();
           } else {
-            router.back();
+            // We are at the root/first page, minimize the app
+            App.minimizeApp();
           }
         });
         console.log('[Capacitor] Back button/swipe gesture listener registered');
@@ -192,7 +207,7 @@ export default function CapacitorInitializer() {
     return () => {
       observer.disconnect();
     };
-  }, [router]);
+  }, []);
 
   return null;
 }
