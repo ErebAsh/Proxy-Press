@@ -324,6 +324,23 @@ function SafeNavigationGuardInner() {
 
       if (href.startsWith('#') || link.hasAttribute('download')) return;
 
+      const normalize = (url: string) => {
+        try {
+          const u = new URL(url, window.location.origin);
+          return u.pathname.replace(/\/+$/, '') || '/';
+        } catch {
+          return url.replace(/\/+$/, '') || '/';
+        }
+      };
+
+      const targetPath = normalize(href);
+      const currentPath = normalize(window.location.pathname);
+
+      // Rule 0: Skip loading bar if clicking a link to the current active page
+      if (targetPath === currentPath) {
+        return;
+      }
+
       const now = Date.now();
       const timeSinceLastNav = now - lastNavTime.current;
 
