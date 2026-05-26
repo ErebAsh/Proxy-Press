@@ -12,5 +12,5 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
     return null;
   });
 
-  return <ProfileClient id={id} profilePromise={profilePromise} />;
+  return <ProfileClient key={id} id={id} profilePromise={profilePromise} />;
 }
