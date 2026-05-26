@@ -1,4 +1,4 @@
-const CACHE_NAME = 'proxy-press-v1.0.0.5';
+const CACHE_NAME = 'proxy-press-v1.0.0.6';
 const ASSETS_TO_CACHE = [
   '/manifest.json',
   '/logo.png',
@@ -40,7 +40,10 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const isPage = event.request.mode === 'navigate' || 
-                 (event.request.headers.get('accept')?.includes('text/html'));
+                 (event.request.headers.get('accept')?.includes('text/html')) ||
+                 event.request.headers.get('rsc') === '1' ||
+                 event.request.headers.has('next-router-state-tree') ||
+                 event.request.url.includes('/_next/data/');
 
   if (isPage) {
     // Strategy: Network-First for HTML pages (avoids displaying stale/cached dashboard after logout)
