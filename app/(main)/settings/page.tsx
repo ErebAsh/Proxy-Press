@@ -85,6 +85,29 @@ function SettingsContent() {
           console.error('Failed to clear caches on logout:', e);
         }
       }
+
+      // Hybrid Native (Capacitor) Environment cleanup
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        if (Capacitor.isNativePlatform()) {
+          // 1. Wipe native platform cookies to prevent session leaks
+          const { CapacitorCookies } = await import('@capacitor/core');
+          await CapacitorCookies.clearAllCookies();
+          console.log('Capacitor native cookies cleared successfully');
+
+          // 2. Wipe offline query/feed cache stored in Capacitor Preferences
+          const { Preferences } = await import('@capacitor/preferences');
+          const keysResult = await Preferences.keys();
+          await Promise.all(
+            keysResult.keys
+              .filter(k => k.startsWith('pp_cache_'))
+              .map(k => Preferences.remove({ key: k }))
+          );
+          console.log('Capacitor offline cache cleared successfully');
+        }
+      } catch (e) {
+        console.error('Failed to clear Capacitor caches/cookies:', e);
+      }
     }
 
     await logout();
